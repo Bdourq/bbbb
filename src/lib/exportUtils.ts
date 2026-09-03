@@ -1,0 +1,170 @@
+import * as xlsx from 'xlsx';
+import { toPng } from 'html-to-image';
+import { ShiftData } from '../store/useShiftStore';
+
+export const exportToExcel = (data: ShiftData, calc: any) => {
+  const wb = xlsx.utils.book_new();
+
+  const addedReceivablesTotal = data.addCashReceivables 
+    ? data.addCashReceivables.reduce((sum, item) => sum + (item.amount || 0), 0)
+    : (data.cashAndSales.addedReceivables || 0);
+
+  // 1. Summary Sheet (ملخص الجرد المالي)
+  const summaryData = [
+    { 'البيان': 'تقرير إغلاق الكاش اليومي - مطعم يحيى البيك', 'القيمة': '' },
+    { 'البيان': 'التاريخ', 'القيمة': data.date },
+    { 'البيان': 'الكاشير', 'القيمة': data.cashierName || '-' },
+    { 'البيان': '', 'القيمة': '' },
+    { 'البيان': '--- حركة الكاش والمبيعات ---', 'القيمة': '' },
+    { 'البيان': 'النقد الافتتاحي', 'القيمة': data.cashAndSales.openingCash },
+    { 'البيان': 'اضافة ذمم', 'القيمة': addedReceivablesTotal },
+    { 'البيان': 'تسديد ذمم قديمة', 'القيمة': data.cashAndSales.paidOldReceivables },
+    { 'البيان': 'مبيعات', 'القيمة': data.cashAndSales.sales },
+    { 'البيان': 'مبيعات أخرى', 'القيمة': data.cashAndSales.otherSales },
+    { 'البيان': 'مجموع الكاش المتوفر', 'القيمة': calc.totalCash },
+    { 'البيان': '', 'القيمة': '' },
+    { 'البيان': '--- الجرد الفعلي ---', 'القيمة': '' },
+    { 'البيان': 'نقد (الكاش الفعلي)', 'القيمة': data.actualInventory.actualCash },
+    { 'البيان': 'فيزا', 'القيمة': data.actualInventory.visa },
+    { 'البيان': 'Rt', 'القيمة': data.actualInventory.rt },
+    { 'البيان': 'مايسترو', 'القيمة': data.actualInventory.maestro },
+    { 'البيان': 'فرق سعر', 'القيمة': data.actualInventory.priceDifference },
+    { 'البيان': 'سلف', 'القيمة': data.actualInventory.advances },
+    { 'البيان': 'المحفظة', 'القيمة': data.actualInventory.wallet },
+    { 'البيان': 'مجموع الجرد الفعلي', 'القيمة': calc.totalInventory },
+    { 'البيان': '', 'القيمة': '' },
+    { 'البيان': '--- النتيجة النهائية ---', 'القيمة': '' },
+    { 'البيان': 'نقص الكاش', 'القيمة': calc.cashShortage ? -calc.cashShortage : 0 },
+    { 'البيان': 'زيادة الكاش', 'القيمة': calc.cashSurplus }
+  ];
+  const wsSummary = xlsx.utils.json_to_sheet(summaryData);
+  wsSummary['!dir'] = 'rtl';
+  xlsx.utils.book_append_sheet(wb, wsSummary, "ملخص الإغلاق");
+
+  // 2. Detailed Expenses & Receivables Sheet (المصاريف والذمم)
+  const flattenList = (list: any[], categoryName: string) => 
+    list
+      .filter(item => (item.label && item.label.trim()) || (Number(item.amount) !== 0))
+      .map(item => ({ 'التصنيف': categoryName, 'البيان': item.label || '-', 'المبلغ': item.amount || 0 }));
+
+  const expensesData = [
+    ...flattenList(data.addCashReceivables || [], 'إضافة ذمم (للكاش)'),
+    ...flattenList(data.purchases, 'مشتريات'),
+    ...flattenList(data.otherExpenses, 'مصاريف أخرى'),
+    ...flattenList(data.abuAbdullah, 'أبو عبدالله'),
+    ...flattenList(data.equipment, 'معدات وصيانة'),
+    ...flattenList(data.addMerchantReceivables, 'إضافة ذمم تجار'),
+    ...flattenList(data.apartment, 'الشقة'),
+    ...flattenList(data.adminExpenses, 'مصاريف إدارية'),
+    ...flattenList(data.ewallet, 'المحفظة الإلكترونية'),
+    ...flattenList(data.payMerchantReceivables, 'سداد ذمم تجار'),
+    ...flattenList(data.yahya, 'يحيى'),
+    ...flattenList(data.spices, 'بهارات'),
+  ];
+  if (expensesData.length > 0) {
+    const wsExpenses = xlsx.utils.json_to_sheet(expensesData);
+    wsExpenses['!dir'] = 'rtl';
+    xlsx.utils.book_append_sheet(wb, wsExpenses, "المصاريف والذمم");
+  }
+
+  // 3. Kitchen & Production Sheet (استهلاك المطبخ والإنتاج)
+  const kitchenData = [
+    { 'التصنيف': 'استهلاك المطبخ', 'البيان': 'سيخ 1', 'الكمية/القيمة': data.kitchenConsumption.skewer1 },
+    { 'التصنيف': 'استهلاك المطبخ', 'البيان': 'سيخ 2', 'الكمية/القيمة': data.kitchenConsumption.skewer2 },
+    { 'التصنيف': 'استهلاك المطبخ', 'البيان': 'تزويد', 'الكمية/القيمة': data.kitchenConsumption.supply },
+    { 'التصنيف': 'استهلاك المطبخ', 'البيان': 'مرتجع', 'الكمية/القيمة': data.kitchenConsumption.return },
+    { 'التصنيف': 'استهلاك المطبخ', 'البيان': 'استهلاك رز', 'الكمية/القيمة': data.kitchenConsumption.rice },
+    { 'التصنيف': 'استهلاك المطبخ', 'البيان': 'استهلاك لوز', 'الكمية/القيمة': data.kitchenConsumption.almond },
+    { 'التصنيف': 'استهلاك المطبخ', 'البيان': 'استهلاك بطاطا', 'الكمية/القيمة': data.kitchenConsumption.potato },
+    { 'التصنيف': 'جرد الإنتاج', 'البيان': 'بروستد', 'الكمية/القيمة': data.productionInventory.broasted },
+    { 'التصنيف': 'جرد الإنتاج', 'البيان': 'تكا', 'الكمية/القيمة': data.productionInventory.tikka },
+    { 'التصنيف': 'جرد الإنتاج', 'البيان': 'زنجر', 'الكمية/القيمة': data.productionInventory.zinger },
+  ];
+  const wsKitchen = xlsx.utils.json_to_sheet(kitchenData);
+  wsKitchen['!dir'] = 'rtl';
+  xlsx.utils.book_append_sheet(wb, wsKitchen, "المطبخ والإنتاج");
+
+  // 4. Employees Attendance & Advances Sheet (حضور وسلف الموظفين)
+  const advancesData = data.employeeAdvances.map((emp, index) => {
+    let dailyWage = 0;
+    if (emp.startTime && emp.endTime && emp.hourlyRate) {
+      const [sh, sm] = emp.startTime.split(':').map(Number);
+      const [eh, em] = emp.endTime.split(':').map(Number);
+      let hours = (eh + em / 60) - (sh + sm / 60);
+      if (hours < 0) hours += 24;
+      dailyWage = Number((hours * emp.hourlyRate).toFixed(2));
+    }
+
+    const isOff = emp.employeeName.trim() && !emp.startTime && !emp.endTime;
+
+    return {
+      'م': index + 1,
+      'اسم الموظف': emp.employeeName || '-',
+      'الحالة': isOff ? 'OFF (لم يحضر)' : 'حاضر',
+      'وقت الدخول': emp.startTime || '-',
+      'وقت الخروج': emp.endTime || '-',
+      'أجر الساعة': emp.hourlyRate || 0,
+      'الأجر اليومي': dailyWage,
+      'قيمة السلفة': emp.amount || 0,
+      'ملاحظات': emp.notes || ''
+    };
+  });
+  if (advancesData.length > 0) {
+    const wsAdvances = xlsx.utils.json_to_sheet(advancesData);
+    wsAdvances['!dir'] = 'rtl';
+    xlsx.utils.book_append_sheet(wb, wsAdvances, "حضور وسلف الموظفين");
+  }
+
+  // Save File
+  xlsx.writeFile(wb, `تقرير_إغلاق_الكاش_${data.date}.xlsx`);
+};
+
+export const printDocument = () => {
+  window.print();
+};
+
+export const exportToImage = async (date: string) => {
+  const element = document.getElementById('report-content');
+  if (!element) return;
+  
+  try {
+    // Add export mode class to force landscape and disable responsive shrinking
+    element.classList.add('export-mode');
+    
+    // Allow browser to apply styles before rendering
+    await new Promise(resolve => setTimeout(resolve, 150));
+
+    const filter = (node: HTMLElement) => {
+      // Exclude elements with data-html2canvas-ignore or print:hidden
+      if (node?.hasAttribute && node.hasAttribute('data-html2canvas-ignore')) {
+        return false;
+      }
+      if (node?.classList && typeof node.classList.contains === 'function' && node.classList.contains('print:hidden')) {
+        return false;
+      }
+      return true;
+    };
+
+    const dataUrl = await toPng(element, {
+      pixelRatio: 2,
+      backgroundColor: '#f9fafb',
+      filter: filter,
+      style: {
+        transform: 'scale(1)',
+        transformOrigin: 'top left'
+      }
+    });
+    
+    // Remove export mode class
+    element.classList.remove('export-mode');
+    
+    const link = document.createElement('a');
+    link.download = `تقرير_إغلاق_${date}.png`;
+    link.href = dataUrl;
+    link.click();
+  } catch (error) {
+    element.classList.remove('export-mode');
+    console.error('Error exporting image:', error);
+    throw error;
+  }
+};

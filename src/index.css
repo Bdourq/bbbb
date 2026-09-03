@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+  
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    background-color: white !important;
+  }
+  
+  input {
+    border: none !important;
+    box-shadow: none !important;
+    background-color: transparent !important;
+    outline: none !important;
+  }
+
+  /* Force tables to show borders in print */
+  table {
+    border-collapse: collapse !important;
+  }
+  th, td {
+    border: 1px solid #e5e7eb !important;
+  }
+  
+  /* Prevent page breaks inside cards */
+  .card-container {
+    page-break-inside: avoid;
+  }
+}
+
+/* Export Mode for Landscape Image Capture */
+.export-mode {
+  width: 1400px !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 24px !important;
+}
+
+.export-mode header {
+  flex-direction: row !important;
+  align-items: center !important;
+}
+
+/* Force specific grids to expand to their full desktop layout */
+.export-mode .export-grid-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+.export-mode .export-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+/* Hide empty tables during export or print */
+.export-mode .card-container[data-empty="true"],
+@media print {
+  .card-container[data-empty="true"] {
+    display: none !important;
+  }
+}
