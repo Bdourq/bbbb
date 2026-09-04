@@ -520,12 +520,18 @@ function App() {
               />
             ))}
 
-            {/* 3. Kitchen & Production Sections */}
-            <KitchenConsumptionSection />
-            <ProductionInventorySection />
+            {/* 3. Kitchen & Production Sections (Grouped for Print Clarity & Pagination) */}
+            <div className="col-span-full print:break-before-page print:mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 print:grid-cols-2 print:gap-3 export-grid-2">
+              <div className="print:break-inside-avoid">
+                <KitchenConsumptionSection />
+              </div>
+              <div className="print:break-inside-avoid">
+                <ProductionInventorySection />
+              </div>
+            </div>
 
             {/* 4. Employee Attendance & Advances Section */}
-            <div className="col-span-full print:col-span-2 export-col-span-2">
+            <div className="col-span-full print:break-before-page print:mt-4">
               <EmployeeAdvancesSection />
             </div>
 
