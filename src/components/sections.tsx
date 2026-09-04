@@ -141,7 +141,21 @@ export const CashDataSection = React.memo(() => {
               );
             })}
             <tr className="border-b border-gray-300">
-              <td className="px-2 py-1.5 bg-gray-50 border border-gray-300 font-bold text-gray-700 w-1/2 text-center">إضافة ذمم جديدة</td>
+              <td className="p-0 bg-gray-50 border border-gray-300 w-1/2">
+                <div className="flex flex-col sm:flex-row h-full relative">
+                  <div className="relative flex items-center justify-center min-w-[80px] bg-gray-50 px-2 py-1.5 border-b sm:border-b-0 sm:border-r-0 border-gray-300">
+                    <span className="font-bold text-gray-700 whitespace-nowrap text-xs">إضافة ذمم جديدة</span>
+                  </div>
+                  <input 
+                    type="text" 
+                    value={cashAndSales.paidOldReceivablesDesc || ''} 
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => updateData(['cashAndSales', 'paidOldReceivablesDesc'], e.target.value)} 
+                    className="w-full px-2 py-1 bg-white outline-none border-t sm:border-t-0 sm:border-r border-gray-300 text-xs text-center focus:bg-amber-50 focus:font-bold" 
+                    placeholder="البيان..." 
+                  />
+                </div>
+              </td>
               <td className="p-0 border border-gray-300">
                 <input
                   type="number"
@@ -241,15 +255,15 @@ export const ActualInventorySection = React.memo(() => {
   ];
 
   const displayFields = [
-    { label: 'مشتريات', value: calc.purchasesTotal, targetId: 'purchases' },
-    { label: 'سداد ذمم تجار', value: calc.payMerchantTotal, targetId: 'payMerchantReceivables' },
-    { label: 'مصاريف أخرى', value: calc.otherExpensesTotal, targetId: 'otherExpenses' },
-    { label: 'الشقة', value: calc.apartmentTotal, targetId: 'apartment' },
-    { label: 'مصاريف إدارية', value: calc.adminExpensesTotal, targetId: 'adminExpenses' },
-    { label: 'يحيى', value: calc.yahyaTotal, targetId: 'yahya' },
-    { label: 'أبو عبدالله', value: calc.abuAbdullahTotal, targetId: 'abuAbdullah' },
-    { label: 'بهارات', value: calc.spicesTotal, targetId: 'spices' },
-    { label: 'معدات وصيانة', value: calc.equipmentTotal, targetId: 'equipment' },
+    { label: 'مشتريات', value: calc.purchasesTotal, targetId: 'purchases', manualKey: 'manualPurchases' },
+    { label: 'سداد ذمم تجار', value: calc.payMerchantTotal, targetId: 'payMerchantReceivables', manualKey: 'manualPayMerchant' },
+    { label: 'مصاريف أخرى', value: calc.otherExpensesTotal, targetId: 'otherExpenses', manualKey: 'manualOtherExpenses' },
+    { label: 'الشقة', value: calc.apartmentTotal, targetId: 'apartment', manualKey: 'manualApartment' },
+    { label: 'مصاريف إدارية', value: calc.adminExpensesTotal, targetId: 'adminExpenses', manualKey: 'manualAdminExpenses' },
+    { label: 'يحيى', value: calc.yahyaTotal, targetId: 'yahya', manualKey: 'manualYahya' },
+    { label: 'أبو عبدالله', value: calc.abuAbdullahTotal, targetId: 'abuAbdullah', manualKey: 'manualAbuAbdullah' },
+    { label: 'بهارات', value: calc.spicesTotal, targetId: 'spices', manualKey: 'manualSpices' },
+    { label: 'معدات وصيانة', value: calc.equipmentTotal, targetId: 'equipment', manualKey: 'manualEquipment' },
   ];
 
   const isEmpty = calc.totalInventory === 0 && !Object.values(data).some(val => Boolean(val));
@@ -311,24 +325,51 @@ export const ActualInventorySection = React.memo(() => {
                 </td>
               </tr>
             ))}
-            {displayFields.map((field, idx) => (
-              <tr 
-                key={idx}
-                onClick={() => scrollToTable(field.targetId)}
-                className="border-b border-gray-300 hover:bg-indigo-50/80 cursor-pointer transition-colors group"
-                title={`انقر للانتقال لمعاينة بيانات جدول ${field.label}`}
-              >
-                <td className="px-2 py-1.5 bg-gray-50 group-hover:bg-indigo-100/60 border border-gray-300 font-bold text-gray-700 text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <span>{field.label}</span>
-                    <ExternalLink size={11} className="text-indigo-500 opacity-40 group-hover:opacity-100 print:hidden shrink-0" />
-                  </div>
-                </td>
-                <td className="px-2 py-1.5 border border-gray-300 text-center bg-gray-50/50 group-hover:bg-indigo-50/50 font-black text-indigo-900" dir="ltr">
-                  {field.value.toLocaleString('en-US')}
-                </td>
-              </tr>
-            ))}
+            {displayFields.map((field, idx) => {
+              // Calculate table sum: totalValue - manualValue
+              const manualValue = Number(data[field.manualKey as keyof typeof data]) || 0;
+              const tableSum = field.value - manualValue;
+              return (
+                <tr 
+                  key={idx}
+                  className="border-b border-gray-300 hover:bg-indigo-50/80 transition-colors group relative"
+                >
+                  <td 
+                    onClick={() => scrollToTable(field.targetId)}
+                    className="px-2 py-1.5 bg-gray-50 group-hover:bg-indigo-100/60 border border-gray-300 font-bold text-gray-700 text-center cursor-pointer"
+                    title={`انقر للانتقال لمعاينة بيانات جدول ${field.label}`}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>{field.label}</span>
+                      <ExternalLink size={11} className="text-indigo-500 opacity-40 group-hover:opacity-100 print:hidden shrink-0" />
+                    </div>
+                  </td>
+                  <td className="p-0 border border-gray-300 relative group">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      pattern="[0-9]*"
+                      value={field.value || ''}
+                      onFocus={(e) => e.target.select()}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      onChange={(e) => {
+                        const newTotal = Number(e.target.value);
+                        const newManual = newTotal - tableSum;
+                        handleInputChange(field.manualKey, newManual);
+                      }}
+                      className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center font-black text-indigo-900 focus:bg-amber-50/80 focus:text-base sm:focus:text-lg transition-all duration-150"
+                      dir="ltr"
+                      placeholder="0"
+                    />
+                    {tableSum > 0 && (
+                      <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[9px] text-indigo-400 font-bold pointer-events-none print:hidden opacity-0 group-hover:opacity-100 transition-opacity">
+                        جدول: {tableSum}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
             <tr 
               onClick={() => scrollToTable('actualInventory')}
               className="border-b border-gray-300 font-bold bg-gray-100 hover:bg-indigo-100/40 cursor-pointer transition-colors"

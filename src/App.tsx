@@ -67,21 +67,6 @@ function App() {
     return () => unsubscribe();
   }, [initSync, data.date, fetchSavedDates]);
 
-  // Explicit debounced auto-save hook to ensure instant auto-syncing to Firestore upon user input
-  useEffect(() => {
-    if (!data.date) return;
-    const saveTimer = setTimeout(async () => {
-      try {
-        const shiftDoc = doc(db, 'shifts', data.date);
-        await setDoc(shiftDoc, data, { merge: true });
-      } catch (err) {
-        console.error('Auto-save error:', err);
-      }
-    }, 800);
-
-    return () => clearTimeout(saveTimer);
-  }, [data]);
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Print Shortcut: Ctrl+P / Cmd+P

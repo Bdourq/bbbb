@@ -18,17 +18,17 @@ export const useCalculations = () => {
     (Number(data.cashAndSales.sales) || 0) +
     (Number(data.cashAndSales.otherSales) || 0);
 
-  // 2. Sum of all expense lists
-  const purchasesTotal = sumLineItems(data.purchases);
+  // 2. Sum of all expense lists + manual overrides
+  const purchasesTotal = sumLineItems(data.purchases) + (Number(data.actualInventory.manualPurchases) || 0);
   const addMerchantTotal = sumLineItems(data.addMerchantReceivables);
-  const payMerchantTotal = sumLineItems(data.payMerchantReceivables);
-  const otherExpensesTotal = sumLineItems(data.otherExpenses);
-  const apartmentTotal = sumLineItems(data.apartment);
-  const adminExpensesTotal = sumLineItems(data.adminExpenses);
-  const yahyaTotal = sumLineItems(data.yahya);
-  const abuAbdullahTotal = sumLineItems(data.abuAbdullah);
-  const spicesTotal = sumLineItems(data.spices);
-  const equipmentTotal = sumLineItems(data.equipment);
+  const payMerchantTotal = sumLineItems(data.payMerchantReceivables) + (Number(data.actualInventory.manualPayMerchant) || 0);
+  const otherExpensesTotal = sumLineItems(data.otherExpenses) + (Number(data.actualInventory.manualOtherExpenses) || 0);
+  const apartmentTotal = sumLineItems(data.apartment) + (Number(data.actualInventory.manualApartment) || 0);
+  const adminExpensesTotal = sumLineItems(data.adminExpenses) + (Number(data.actualInventory.manualAdminExpenses) || 0);
+  const yahyaTotal = sumLineItems(data.yahya) + (Number(data.actualInventory.manualYahya) || 0);
+  const abuAbdullahTotal = sumLineItems(data.abuAbdullah) + (Number(data.actualInventory.manualAbuAbdullah) || 0);
+  const spicesTotal = sumLineItems(data.spices) + (Number(data.actualInventory.manualSpices) || 0);
+  const equipmentTotal = sumLineItems(data.equipment) + (Number(data.actualInventory.manualEquipment) || 0);
   const ewalletTotal = sumLineItems(data.ewallet);
 
   // 3. Advances total (Advances + Daily Wages)

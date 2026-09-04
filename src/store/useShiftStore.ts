@@ -50,6 +50,7 @@ export type ShiftData = {
     openingCash: number;
     addedReceivablesDesc: string;
     addedReceivables: number;
+    paidOldReceivablesDesc?: string;
     paidOldReceivables: number;
     sales: number;
     otherSales: number;
@@ -76,6 +77,15 @@ export type ShiftData = {
     priceDifference: number;
     advances: number;
     wallet: number;
+    manualPurchases?: number;
+    manualPayMerchant?: number;
+    manualOtherExpenses?: number;
+    manualApartment?: number;
+    manualAdminExpenses?: number;
+    manualYahya?: number;
+    manualAbuAbdullah?: number;
+    manualSpices?: number;
+    manualEquipment?: number;
   };
   employeeAdvances: Array<{
     id: string;
@@ -121,6 +131,7 @@ const defaultState: ShiftData = {
     openingCash: DEFAULT_OPENING_CASH,
     addedReceivablesDesc: '',
     addedReceivables: 0,
+    paidOldReceivablesDesc: '',
     paidOldReceivables: 0,
     sales: 0,
     otherSales: 0,
@@ -201,10 +212,16 @@ const updateNestedState = (obj: any, path: (string | number)[], value: any): any
 };
 
 let debounceTimeout: NodeJS.Timeout | null = null;
+let lastLocalUpdate = 0;
+let pendingDataToSync: ShiftData | null = null;
 
 const syncToFirestore = (data: ShiftData) => {
+  pendingDataToSync = data;
   if (debounceTimeout) clearTimeout(debounceTimeout);
+  lastLocalUpdate = Date.now();
   debounceTimeout = setTimeout(async () => {
+    debounceTimeout = null;
+    pendingDataToSync = null;
     try {
       const shiftDoc = doc(db, 'shifts', data.date);
       await setDoc(shiftDoc, data, { merge: true });
@@ -213,6 +230,17 @@ const syncToFirestore = (data: ShiftData) => {
     }
   }, 1000);
 };
+
+// Ensure we don't lose data if the user refreshes/closes the tab before the debounce fires
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    if (pendingDataToSync && debounceTimeout) {
+      const shiftDoc = doc(db, 'shifts', pendingDataToSync.date);
+      // Fire-and-forget sync before tab closes
+      setDoc(shiftDoc, pendingDataToSync, { merge: true });
+    }
+  });
+}
 
 export const useShiftStore = create<StoreState>((set, get) => ({
   data: { ...defaultState },
@@ -488,6 +516,12 @@ export const useShiftStore = create<StoreState>((set, get) => ({
     
     // Subscribe to real-time changes
     const unsubscribe = onSnapshot(shiftDoc, async (docSnap) => {
+      // Ignore incoming remote data if the user has typed/updated within the last 2 seconds
+      // OR if there are pending writes. This prevents overwriting user input during active editing.
+      if (docSnap.metadata.hasPendingWrites || Date.now() - lastLocalUpdate < 2000) {
+        return;
+      }
+
       if (docSnap.exists()) {
         const remoteData = docSnap.data() as ShiftData;
         if (!remoteData.cashAndSales?.openingCash || remoteData.cashAndSales.openingCash === 0) {
