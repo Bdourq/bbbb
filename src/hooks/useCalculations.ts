@@ -37,8 +37,8 @@ export const useCalculations = () => {
     return acc + dailyWage + (Number(emp.amount) || 0);
   }, 0);
 
-  // 4. Total Inventory (Expenses + Advances)
-  const totalInventory = 
+  // 4. Total Expenses (المصاريف وسداد الذمم والسلف)
+  const totalExpenses = 
     purchasesTotal +
     payMerchantTotal +
     otherExpensesTotal +
@@ -50,25 +50,41 @@ export const useCalculations = () => {
     equipmentTotal +
     advancesTotal;
 
-  // 5. Total Collected
-  const totalCollected = 
+  // 5. Total Actual Inventory (مجموع الجرد الفعلي: نقد + فيزا + Rt + مايسترو + فرق سعر + سلف + محفظة + كافة المصاريف وقوائم الجرد)
+  // في الكشف الورقي: مجموع الجرد الفعلي = (نقد فعلي + فيزا + Rt + مايسترو + فرق سعر + سلف + المحفظة) + مجموع المصاريف
+  const actualCounted = 
     (Number(data.actualInventory.actualCash) || 0) +
     (Number(data.actualInventory.visa) || 0) +
     (Number(data.actualInventory.rt) || 0) +
     (Number(data.actualInventory.maestro) || 0) +
     (Number(data.actualInventory.priceDifference) || 0) +
+    (Number(data.actualInventory.advances) || advancesTotal || 0) +
     (Number(data.actualInventory.wallet) || 0);
 
-  // Expected Cash = Total Cash - Total Expenses
-  const expectedCash = totalCash - totalInventory;
+  const totalInventory = 
+    (Number(data.actualInventory.actualCash) || 0) +
+    (Number(data.actualInventory.visa) || 0) +
+    (Number(data.actualInventory.rt) || 0) +
+    (Number(data.actualInventory.maestro) || 0) +
+    (Number(data.actualInventory.priceDifference) || 0) +
+    (Number(data.actualInventory.wallet) || 0) +
+    totalExpenses;
 
-  // Shortage / Surplus
-  const diff = totalCollected - expectedCash;
-  const cashShortage = diff < 0 ? diff : 0;
-  const cashSurplus = diff > 0 ? diff : 0;
+  // Total Collected (المعدود كاش وفيزا وغيره)
+  const totalCollected = actualCounted;
+
+  // الفرق المالي النهائي بين مجموع الجرد الفعلي ومجموع الكاش المطلوب:
+  // diff = مجموع الجرد الفعلي - مجموع الكاش
+  const diff = Number((totalInventory - totalCash).toFixed(2));
+  const cashShortage = diff < -0.009 ? Math.abs(diff) : 0;
+  const cashSurplus = diff > 0.009 ? diff : 0;
+
+  // Expected Cash = Total Cash - Total Expenses
+  const expectedCash = totalCash - totalExpenses;
 
   return {
     totalCash,
+    totalExpenses,
     purchasesTotal,
     addMerchantTotal,
     payMerchantTotal,

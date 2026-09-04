@@ -1,28 +1,56 @@
 import React, { useEffect, useState } from 'react';
-import { Menu, X, Calendar, ChevronLeft, ShieldAlert, ArrowRightLeft } from 'lucide-react';
+import { Menu, X, Calendar, ChevronLeft, ShieldAlert, ArrowRightLeft, HandCoins, AlertCircle, Lock, Unlock, Printer } from 'lucide-react';
 import { useShiftStore } from './store/useShiftStore';
 import { useCalculations } from './hooks/useCalculations';
+import { useValidationStore } from './store/useValidationStore';
 import { DynamicList } from './components/ui';
 import { ActualInventorySection, CashDataSection } from './components/sections';
 import { KitchenConsumptionSection, ProductionInventorySection, EmployeeAdvancesSection } from './components/sections2';
+import { CustodySection } from './components/CustodySection';
 import { ExportButtons } from './components/ExportButtons';
+import { SmartValidationModal } from './components/SmartValidationModal';
 import { LogoUpload } from './components/LogoUpload';
 import { CashierDeficitModal } from './components/CashierDeficitModal';
 import { ShiftHandoverModal } from './components/ShiftHandoverModal';
 import { Toaster, toast } from 'react-hot-toast';
-import { format } from 'date-fns';
+import { format, differenceInCalendarDays, parseISO } from 'date-fns';
 import { db } from './lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
+import { exportToImage, printDocument } from './lib/exportUtils';
+import { seededShiftData20260903 } from './data/seed20260903';
+import { cn } from './lib/utils';
 
 function App() {
-  const { data, isLoading, initSync, updateData, setShiftDate, fetchSavedDates, savedDates } = useShiftStore();
+  const { data, isLoading, initSync, updateData, setShiftDate, fetchSavedDates, savedDates, closeShift, reopenShift } = useShiftStore();
   const calc = useCalculations();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showDeficitModal, setShowDeficitModal] = useState(false);
   const [showHandoverModal, setShowHandoverModal] = useState(false);
+  const [showValidationModal, setShowValidationModal] = useState(false);
 
-  const today = format(new Date(), 'yyyy-MM-dd');
-  const isReadOnly = data.isClosed || data.date !== today;
+  const errors = useValidationStore(state => state.errors);
+  const triggerValidation = useValidationStore(state => state.triggerValidation);
+  const clearError = useValidationStore(state => state.clearError);
+
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  let daysDiff = 0;
+  try {
+    daysDiff = differenceInCalendarDays(parseISO(todayStr), parseISO(data.date));
+  } catch {
+    daysDiff = 0;
+  }
+
+  // Check if shift startup requirements are met (Date, Day, Cashier Name, and Opening Cash entered)
+  const isShiftStarted = Boolean(
+    data.date && 
+    data.cashierName && 
+    (data.cashAndSales.openingCash !== undefined && data.cashAndSales.openingCash !== null && String(data.cashAndSales.openingCash) !== '')
+  );
+
+  // Editable rule: Only reports less than or equal to 3 days old (0, 1, 2, 3 days ago)
+  const isWithin3Days = daysDiff <= 3;
+  const isLockedByAge = !isWithin3Days;
+  const isReadOnly = isLockedByAge || data.isClosed;
 
   useEffect(() => {
     fetchSavedDates();
@@ -32,6 +60,13 @@ function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Print Shortcut: Ctrl+P / Cmd+P
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        printDocument();
+        return;
+      }
+
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         const shiftDoc = doc(db, 'shifts', data.date);
@@ -72,6 +107,20 @@ function App() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isReadOnly, data]);
 
+  const performShiftClose = () => {
+    closeShift();
+    toast.success('تم إغلاق الشفت بنجاح ✅');
+    
+    const loadingToast = toast.loading('جاري تجهيز الصورة...');
+    try {
+      exportToImage(data.date).then(() => {
+        toast.success('تم تصدير الصورة بنجاح', { id: loadingToast });
+      });
+    } catch (error) {
+      toast.error('حدث خطأ أثناء تصدير الصورة', { id: loadingToast });
+    }
+  };
+
   const baseMerchantSuggestions = [
     "خس", "خبز الشيخ", "خبز بروستد", "نوافله", "خضار", "ابو جليل", "منظفات"
   ];
@@ -81,19 +130,44 @@ function App() {
   ];
   
   const purchasesSuggestions = [...baseMerchantSuggestions, ...ohdaSuggestions];
-
   const personalSuggestions = ["اوردر", "اغراض"];
-  
   const adminSuggestions = ["ضمان", "كهرباء", "فاتورة نت", "فاتورة اتصال", "ضيافة", "رعاية", "قرطاسية"];
-  
   const spiceSuggestions = ["بهارات شاورما", "كبا", "مشكل", "جنات", "قشرة", "شطة زبدة", "مدخن ملونين", "بطاطا", "صبغة حا", "صبغة رز"];
+
+  const weekdays = [
+    { label: 'الجمعة', value: 5 },
+    { label: 'السبت', value: 6 },
+    { label: 'الأحد', value: 0 },
+    { label: 'الاثنين', value: 1 },
+    { label: 'الثلاثاء', value: 2 },
+    { label: 'الأربعاء', value: 3 },
+    { label: 'الخميس', value: 4 },
+  ];
+
+  // Helper to adjust date when a day of week is explicitly selected
+  const handleDaySelect = (targetDayIndex: number) => {
+    try {
+      const current = parseISO(data.date);
+      const currentDay = current.getDay();
+      let diff = targetDayIndex - currentDay;
+      // Adjust to closest past/present matching day (within 7 days)
+      if (diff > 0) diff -= 7;
+      const newDate = new Date(current);
+      newDate.setDate(current.getDate() + diff);
+      setShiftDate(format(newDate, 'yyyy-MM-dd'));
+    } catch {
+      // Fallback
+    }
+  };
 
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center text-gray-500">جاري التحميل...</div>;
   }
 
+  const cashierError = errors['cashierName'];
+
   return (
-    <div className="min-h-screen bg-gray-50/50 p-4 md:p-8 font-sans text-gray-900" dir="rtl" id="report-content">
+    <div className="min-h-screen bg-gray-50/50 font-sans text-gray-900" dir="rtl" id="report-content">
       <Toaster position="top-center" reverseOrder={false} />
       
       {/* Sidebar Overlay */}
@@ -148,6 +222,40 @@ function App() {
               <ArrowRightLeft size={18} />
               <span>تسليم الشفت (صباحي ➔ مسائي)</span>
             </button>
+            <button
+              onClick={() => {
+                setIsSidebarOpen(false);
+                const el = document.getElementById('custodySection');
+                if (el) {
+                  el.scrollIntoView({ behavior: 'smooth' });
+                  el.classList.add('ring-4', 'ring-indigo-400');
+                  setTimeout(() => el.classList.remove('ring-4', 'ring-indigo-400'), 2000);
+                }
+              }}
+              className="w-full flex items-center gap-2 p-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold border border-amber-200 transition-colors text-sm shadow-xs"
+            >
+              <HandCoins size={18} className="text-amber-600" />
+              <span>جدول العهدة (الكاش الخارج والعائد)</span>
+            </button>
+            <button
+              onClick={() => {
+                try {
+                  const shiftDoc = doc(db, 'shifts', seededShiftData20260903.date);
+                  setDoc(shiftDoc, seededShiftData20260903, { merge: true });
+                  useShiftStore.getState().syncFromRemote(seededShiftData20260903);
+                  toast.success('تمت تعبئة كافة بيانات الكشف الورقي طبقاً للأصل بنجاح ✅');
+                  setIsSidebarOpen(false);
+                } catch {
+                  useShiftStore.getState().syncFromRemote(seededShiftData20260903);
+                  toast.success('تمت تعبئة بيانات الكشف بنجاح');
+                  setIsSidebarOpen(false);
+                }
+              }}
+              className="w-full flex items-center gap-2 p-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold border border-emerald-200 transition-colors text-sm shadow-xs cursor-pointer"
+            >
+              <Calendar size={18} className="text-emerald-600" />
+              <span>تعبئة كشف اليوم المرفق (الخميس 3/9)</span>
+            </button>
           </div>
 
           <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">التقارير السابقة</h3>
@@ -177,8 +285,13 @@ function App() {
 
       <CashierDeficitModal isOpen={showDeficitModal} onClose={() => setShowDeficitModal(false)} />
       <ShiftHandoverModal isOpen={showHandoverModal} onClose={() => setShowHandoverModal(false)} />
+      <SmartValidationModal 
+        isOpen={showValidationModal} 
+        onClose={() => setShowValidationModal(false)}
+        onConfirmForceClose={performShiftClose}
+      />
 
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
         
         {/* Actions Bar */}
         <div className="flex justify-end print:hidden mb-4" data-html2canvas-ignore="true">
@@ -186,9 +299,9 @@ function App() {
         </div>
 
         {/* Header */}
-        <header className="bg-white p-6 rounded-xl shadow-sm border mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative">
+        <header className="bg-white p-6 rounded-xl shadow-sm border mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative">
           {isReadOnly && (
-            <div className="absolute top-0 right-0 left-0 bottom-0 pointer-events-none rounded-xl bg-gray-50/20 border-2 border-amber-400/50 flex items-center justify-center z-0 overflow-hidden">
+            <div className="absolute top-0 right-0 left-0 bottom-0 pointer-events-none rounded-xl bg-gray-50/20 border-2 border-amber-400/50 flex items-center justify-center z-0 overflow-hidden print:hidden">
                <span className="text-5xl md:text-7xl font-black text-amber-500/20 transform -rotate-12 whitespace-nowrap">للقراءة فقط - التقرير مغلق</span>
             </div>
           )}
@@ -204,49 +317,168 @@ function App() {
             <LogoUpload />
             <div className="flex flex-col">
               <h1 className="text-2xl font-bold text-gray-800">مطعم يحيى البيك - تقرير إغلاق الكاش اليومي</h1>
-              {isReadOnly && <span className="text-sm font-bold text-amber-600 mt-1 print:hidden">⚠️ وضع القراءة فقط - التقرير مغلق للتعديل</span>}
+              {isLockedByAge && (
+                <span className="text-xs font-bold text-slate-500 mt-1 print:hidden flex items-center gap-1">
+                  <Lock size={12} />
+                  مؤرشف (مضى عليه أكثر من 3 أيام - غير قابل للتعديل)
+                </span>
+              )}
+              {!isLockedByAge && data.isClosed && (
+                <span className="text-xs font-bold text-amber-600 mt-1 print:hidden flex items-center gap-1">
+                  <Lock size={12} />
+                  مغلق (متاح لإعادة الفتح والتعديل لأنه ضمن مهلة 3 أيام)
+                </span>
+              )}
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-4 z-10">
-            <div className="flex items-center gap-2 font-bold text-gray-700 bg-gray-50 px-4 py-2 rounded-lg border">
-              <span className="text-gray-500 font-medium">اليوم:</span>
-              <span>{new Intl.DateTimeFormat('ar-JO', { weekday: 'long' }).format(new Date(data.date))}</span>
+          <div className="flex flex-wrap items-center gap-3 z-10">
+            {/* 1. Day of Week Dropdown */}
+            <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-lg border print:border-none print:p-0">
+              <span className="text-gray-500 font-medium text-xs sm:text-sm">اليوم:</span>
+              <select
+                disabled={isReadOnly}
+                value={new Date(data.date).getDay()}
+                onChange={(e) => handleDaySelect(Number(e.target.value))}
+                className="bg-transparent font-bold text-gray-800 text-xs sm:text-sm outline-none cursor-pointer disabled:cursor-default"
+              >
+                {weekdays.map((w) => (
+                  <option key={w.value} value={w.value} className="text-gray-900 bg-white">
+                    {w.label}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600 font-medium">التاريخ:</label>
+
+            {/* 2. Date Picker */}
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs sm:text-sm text-gray-600 font-medium">التاريخ:</label>
               <input 
                 type="date" 
                 lang="en-US"
                 dir="ltr"
                 value={data.date}
+                disabled={isReadOnly}
                 onChange={(e) => setShiftDate(e.target.value)}
-                className="px-3 py-1.5 border rounded-md outline-none focus:ring-2 focus:ring-blue-500 print:font-bold print:border-none print:p-0"
+                className="px-2.5 py-1.5 border rounded-lg text-xs sm:text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white font-medium print:font-bold print:border-none print:p-0"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600 font-medium">الكاشير:</label>
-              <div className="flex flex-col">
-                <input 
-                  type="text" 
-                  list="cashier-suggestions"
+
+            {/* 3. Cashier Selector */}
+            <div className="flex items-center gap-1.5 relative">
+              <label className="text-xs sm:text-sm text-gray-600 font-medium">الكاشير:</label>
+              <div className="flex flex-col relative" id="cashierName">
+                <select
+                  disabled={isReadOnly}
                   value={data.cashierName}
-                  readOnly={isReadOnly}
-                  onChange={(e) => updateData(['cashierName'], e.target.value)}
-                  className={`px-3 py-1.5 border rounded-md outline-none focus:ring-2 focus:ring-blue-500 print:font-bold print:border-none print:p-0 w-32 ${isReadOnly ? 'bg-gray-50' : ''}`}
-                  placeholder="اسم الكاشير"
-                />
-                <datalist id="cashier-suggestions">
-                  <option value="قصي البدور" />
-                  <option value="امجد شحادات" />
-                </datalist>
+                  onChange={(e) => {
+                    updateData(['cashierName'], e.target.value);
+                    if (e.target.value.trim() && cashierError) {
+                      clearError('cashierName');
+                    }
+                  }}
+                  className={cn(
+                    "px-3 py-1.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm font-bold bg-white w-36 transition-all",
+                    isReadOnly && "bg-gray-50 text-gray-700",
+                    cashierError && "ring-3 ring-rose-500 border-rose-500 bg-rose-50 text-rose-700"
+                  )}
+                >
+                  <option value="">-- اختر الكاشير --</option>
+                  <option value="قصي البدور">قصي البدور</option>
+                  <option value="أمجد شحادات">أمجد شحادات</option>
+                </select>
+                {cashierError && (
+                  <span className="absolute -bottom-5 right-0 text-[10px] font-bold text-rose-600 whitespace-nowrap flex items-center gap-0.5 animate-pulse">
+                    <AlertCircle size={10} />
+                    {cashierError}
+                  </span>
+                )}
               </div>
+            </div>
+
+            {/* 4. Opening Cash (Header Direct Input) */}
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs sm:text-sm text-gray-600 font-medium">النقد الافتتاحي:</label>
+              <input 
+                type="number"
+                inputMode="decimal"
+                pattern="[0-9]*"
+                dir="ltr"
+                disabled={isReadOnly}
+                value={data.cashAndSales.openingCash || ''}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  updateData(['cashAndSales', 'openingCash'], val);
+                  if (errors['cashData']) {
+                    clearError('cashData');
+                  }
+                }}
+                placeholder="0.00"
+                className="w-24 px-2.5 py-1.5 border rounded-lg text-xs sm:text-sm font-extrabold text-center text-indigo-900 bg-amber-50/50 border-amber-200 outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-all print:font-bold print:border-none print:p-0"
+              />
             </div>
           </div>
         </header>
 
-        <div className={`transition-opacity duration-300 ${isReadOnly ? 'pointer-events-none' : ''}`}>
+        {/* 3-Day Editability / Reopen Notice Banner */}
+        {data.isClosed && isWithin3Days && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-amber-900 shadow-xs print:hidden">
+            <div className="flex items-center gap-2.5">
+              <AlertCircle className="text-amber-600 shrink-0" size={20} />
+              <div>
+                <p className="font-bold">الشفت مغلق حالياً، لكنه متاح للتعديل لأنه مضى عليه أقل من 3 أيام.</p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  (متبقي {Math.max(0, 3 - Math.max(0, daysDiff))} يوم للتعديل قبل الأرشفة الدائمة). يمكنك الضغط على الزر لفتحه وإجراء التعديلات.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                reopenShift();
+                toast.success('تمت إعادة فتح الشفت للتعديل بنجاح 🔓');
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs transition-colors shrink-0 shadow-xs"
+            >
+              <Unlock size={14} />
+              <span>إعادة فتح الشفت للتعديل</span>
+            </button>
+          </div>
+        )}
+
+        {/* Require Shift Startup Info Before Unlocking Inventory & Tables */}
+        {!isReadOnly && !isShiftStarted && (
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-5 flex items-center gap-3 text-blue-900 shadow-sm print:hidden">
+            <AlertCircle className="text-blue-600 shrink-0" size={24} />
+            <div>
+              <p className="font-bold text-base">يرجى استكمال بيانات بدء الشفت أولاً لفتح الجداول والإدخال</p>
+              <p className="text-xs text-blue-700 mt-1">
+                يتم فتح الشفت والبدء بالجرد فور تحديد: <span className="font-bold underline">اليوم</span>، و<span className="font-bold underline">التاريخ</span>، واختيار <span className="font-bold underline">اسم الكاشير (قصي البدور أو أمجد شحادات)</span>، وإدخال <span className="font-bold underline">النقد الافتتاحي</span> يدوياً في الشريط العلوي.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {isLockedByAge && (
+          <div className="bg-slate-100 border border-slate-300 rounded-xl p-4 flex items-center gap-2.5 text-sm text-slate-700 shadow-xs print:hidden">
+            <Lock className="text-slate-500 shrink-0" size={20} />
+            <div>
+              <p className="font-bold">تقرير مؤرشف ومقفل نهائياً</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                مضى على هذا التقرير أكثر من 3 أيام ({daysDiff} يوم)، لذا تم قفله نهائياً للحفاظ على سلامة السجلات، ويتاح فقط للعرض والطباعة.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className={`transition-opacity duration-300 ${isReadOnly || (!isShiftStarted && !data.isClosed) ? 'pointer-events-none opacity-50 select-none' : ''}`}>
+          
+          {/* Custody (العهدة - الكاش الخارج والعائد - أعلى الصفحة داخلي فقط) */}
+          <div className="mb-4 print:hidden">
+            <CustodySection />
+          </div>
+
           {/* Top Grid: 4 columns layout to exactly match PDF */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 print:grid-cols-4 print:gap-2 export-grid-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 print:grid-cols-4 print:gap-2 export-grid-4">
           
           {/* Column 1 (Rightmost in RTL) */}
           <div className="space-y-4 print:space-y-2">
@@ -285,10 +517,10 @@ function App() {
         </div>
 
         {/* Advances */}
-        <div className="mt-8">
+        <div className="mt-6">
           <EmployeeAdvancesSection />
         </div>
-        
+
         </div>
 
       </div>
@@ -297,3 +529,4 @@ function App() {
 }
 
 export default App;
+

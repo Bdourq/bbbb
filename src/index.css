@@ -1,35 +1,193 @@
 @import "tailwindcss";
 
+/* Smart Numeric Focus Zoom & Keypad Retention */
+input[type="number"] {
+  font-variant-numeric: tabular-nums;
+  transition: font-size 0.15s ease, transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type="number"]:focus {
+  font-size: 1.15rem !important;
+  font-weight: 800 !important;
+  background-color: #fffbeb !important; /* amber-50 */
+  color: #1e3a8a !important; /* blue-900 */
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3) !important;
+  position: relative;
+  z-index: 20 !important;
+}
+
+@media (max-width: 640px) {
+  input[type="number"]:focus {
+    font-size: 1.25rem !important;
+    transform: scale(1.03);
+  }
+}
+
+/* Flashing Validation Highlight */
+@keyframes errorPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.7);
+    border-color: #f43f5e;
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(244, 63, 94, 0.2);
+    border-color: #e11d48;
+  }
+}
+
+.highlight-pulse {
+  animation: errorPulse 1s ease-in-out infinite !important;
+  border-color: #f43f5e !important;
+  scroll-margin-top: 80px;
+}
+
 @media print {
   @page {
     size: A4 portrait;
-    margin: 10mm;
+    margin: 5mm 6mm;
   }
   
-  body {
+  html, body {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    background-color: white !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 11px !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  #report-content,
+  .max-w-7xl {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
   }
   
+  /* Hide all non-printable elements */
+  .print\:hidden,
+  [data-html2canvas-ignore="true"],
+  button,
+  .toaster,
+  datalist,
+  .highlight-pulse {
+    display: none !important;
+  }
+
+  /* Header adjustments for print */
+  header {
+    background-color: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    padding: 8px 12px !important;
+    margin-bottom: 8px !important;
+    box-shadow: none !important;
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+  }
+
+  header h1 {
+    font-size: 16px !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+  }
+
+  /* Cards in print */
+  .card-container {
+    border: 1px solid #94a3b8 !important;
+    border-radius: 4px !important;
+    box-shadow: none !important;
+    margin-bottom: 6px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    background-color: #ffffff !important;
+  }
+
+  /* Hide empty tables in print */
+  .card-container[data-empty="true"] {
+    display: none !important;
+  }
+
+  /* Card Header */
+  .card-container > div:first-child {
+    background-color: #f1f5f9 !important;
+    border-bottom: 1px solid #94a3b8 !important;
+    padding: 2px 6px !important;
+  }
+
+  .card-container h3 {
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+  }
+
+  /* Tables styling */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    border: 1px solid #94a3b8 !important;
+  }
+
+  th, td {
+    border: 1px solid #94a3b8 !important;
+    padding: 2.5px 4px !important;
+    font-size: 10px !important;
+    line-height: 1.2 !important;
+    color: #0f172a !important;
+  }
+
+  th {
+    background-color: #e2e8f0 !important;
+    font-weight: 800 !important;
+    color: #1e293b !important;
+  }
+
+  /* Inputs in print */
   input {
     border: none !important;
     box-shadow: none !important;
     background-color: transparent !important;
     outline: none !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    padding: 0 !important;
+    text-align: center !important;
+    height: auto !important;
+    transform: none !important;
   }
 
-  /* Force tables to show borders in print */
-  table {
-    border-collapse: collapse !important;
+  input::placeholder {
+    color: transparent !important;
   }
-  th, td {
-    border: 1px solid #e5e7eb !important;
+
+  /* Force 4-column print grid for top section */
+  .grid.print\:grid-cols-4 {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    width: 100% !important;
   }
-  
-  /* Prevent page breaks inside cards */
-  .card-container {
-    page-break-inside: avoid;
+
+  /* Force 2-column print grid for lower section */
+  .grid.print\:grid-cols-2 {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    width: 100% !important;
+    margin-top: 6px !important;
+  }
+
+  /* Employee table advances container */
+  #employeeAdvances {
+    margin-top: 6px !important;
+    width: 100% !important;
   }
 }
 
@@ -62,3 +220,4 @@
     display: none !important;
   }
 }
+

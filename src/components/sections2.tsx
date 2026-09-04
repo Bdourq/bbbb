@@ -18,20 +18,23 @@ export const KitchenConsumptionSection = () => {
   ];
 
   return (
-    <Card>
+    <Card id="kitchenConsumption">
       <CardHeader title="استهلاك المطبخ" />
       <div className="p-0">
         <table className="w-full text-xs sm:text-sm text-right border-collapse border border-gray-300">
           <tbody>
-            {fields.map((field, idx) => (
+            {fields.map((field) => (
               <tr key={field.key} className="border-b border-gray-300 last:border-b-0">
                 <td className="px-2 py-1.5 bg-gray-50 border border-gray-300 font-bold text-gray-700 w-1/2 text-center">{field.label}</td>
                 <td className="p-0 border border-gray-300">
                   <input
                     type="number"
+                    inputMode="decimal"
+                    pattern="[0-9]*"
                     value={data[field.key as keyof typeof data] || ''}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => updateData(['kitchenConsumption', field.key], Number(e.target.value))}
-                    className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center"
+                    className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center focus:bg-amber-50/80 focus:font-bold focus:text-base sm:focus:text-lg focus:text-indigo-900 transition-all duration-150"
                     dir="ltr"
                     placeholder="0"
                   />
@@ -56,20 +59,23 @@ export const ProductionInventorySection = () => {
   ];
 
   return (
-    <Card>
+    <Card id="productionInventory">
       <CardHeader title="جرد الإنتاج" />
       <div className="p-0">
         <table className="w-full text-xs sm:text-sm text-right border-collapse border border-gray-300">
           <tbody>
-            {fields.map((field, idx) => (
+            {fields.map((field) => (
               <tr key={field.key} className="border-b border-gray-300 last:border-b-0">
                 <td className="px-2 py-1.5 bg-gray-50 border border-gray-300 font-bold text-gray-700 w-1/2 text-center">{field.label}</td>
                 <td className="p-0 border border-gray-300">
                   <input
                     type="number"
+                    inputMode="decimal"
+                    pattern="[0-9]*"
                     value={data[field.key as keyof typeof data] || ''}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => updateData(['productionInventory', field.key], Number(e.target.value))}
-                    className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center"
+                    className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center focus:bg-amber-50/80 focus:font-bold focus:text-base sm:focus:text-lg focus:text-indigo-900 transition-all duration-150"
                     dir="ltr"
                     placeholder="0"
                   />
@@ -109,7 +115,7 @@ export const EmployeeAdvancesSection = () => {
   };
 
   return (
-    <Card className="col-span-full">
+    <Card id="employeeAdvances" className="col-span-full">
       <CardHeader 
         title="سجل حضور وسلف الموظفين" 
         action={
@@ -138,24 +144,36 @@ export const EmployeeAdvancesSection = () => {
               const dailyWage = calculateWage(emp.startTime, emp.endTime, emp.hourlyRate);
               const isOff = emp.employeeName.trim() && !emp.startTime && !emp.endTime;
               return (
-                <tr key={emp.id} className="border-b border-gray-300 hover:bg-gray-50 transition-colors">
-                  <td className="px-1 py-1.5 border border-gray-300 text-center text-gray-500 font-medium">{index + 1}</td>
+                <tr 
+                  key={emp.id} 
+                  className={`border-b border-gray-300 transition-colors ${
+                    isOff 
+                      ? 'bg-rose-50/70 hover:bg-rose-100/70 border-rose-200' 
+                      : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <td className={`px-1 py-1.5 border border-gray-300 text-center font-medium ${
+                    isOff ? 'text-rose-700 bg-rose-100/60 font-bold' : 'text-gray-500'
+                  }`}>{index + 1}</td>
                   <td className="p-0 border border-gray-300">
                     <div className="flex items-center justify-between px-2 py-1.5">
                       <input
                         type="text"
                         value={emp.employeeName}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => {
                           updateData(['employeeAdvances', index, 'employeeName'], e.target.value);
                           if (index === data.length - 1 && e.target.value) {
                             addEmployee();
                           }
                         }}
-                        className="w-full bg-transparent outline-none text-center"
+                        className={`w-full bg-transparent outline-none text-center focus:bg-amber-50 focus:font-bold ${
+                          isOff ? 'font-bold text-rose-900' : ''
+                        }`}
                         placeholder="اسم الموظف"
                       />
                       {isOff && (
-                        <span className="text-[10px] bg-red-100 text-red-600 font-bold px-1.5 py-0.5 rounded whitespace-nowrap ml-1" title="لم يأتي إلى العمل">OFF</span>
+                        <span className="text-[10px] bg-rose-600 text-white font-extrabold px-2 py-0.5 rounded shadow-xs whitespace-nowrap ml-1 animate-pulse" title="عطلة (OFF) لهذا اليوم">OFF</span>
                       )}
                     </div>
                   </td>
@@ -165,7 +183,9 @@ export const EmployeeAdvancesSection = () => {
                         type="time"
                         value={emp.startTime || ''}
                         onChange={(e) => updateData(['employeeAdvances', index, 'startTime'], e.target.value)}
-                        className="bg-transparent outline-none text-center text-xs w-16"
+                        className={`bg-transparent outline-none text-center text-xs w-16 ${
+                          isOff ? 'text-rose-400 placeholder:text-rose-300' : ''
+                        }`}
                       />
                       <button
                         type="button"
@@ -183,7 +203,9 @@ export const EmployeeAdvancesSection = () => {
                         type="time"
                         value={emp.endTime || ''}
                         onChange={(e) => updateData(['employeeAdvances', index, 'endTime'], e.target.value)}
-                        className="bg-transparent outline-none text-center text-xs w-16"
+                        className={`bg-transparent outline-none text-center text-xs w-16 ${
+                          isOff ? 'text-rose-400 placeholder:text-rose-300' : ''
+                        }`}
                       />
                       <button
                         type="button"
@@ -198,22 +220,32 @@ export const EmployeeAdvancesSection = () => {
                   <td className="p-0 border border-gray-300">
                     <input
                       type="number"
+                      inputMode="decimal"
+                      pattern="[0-9]*"
                       value={emp.hourlyRate || ''}
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) => updateData(['employeeAdvances', index, 'hourlyRate'], Number(e.target.value))}
-                      className="w-full h-full px-1 py-1.5 bg-transparent outline-none text-center text-xs"
+                      className={`w-full h-full px-1 py-1.5 bg-transparent outline-none text-center text-xs focus:bg-amber-50/80 focus:font-black focus:text-sm focus:text-indigo-900 transition-all duration-150 ${
+                        isOff ? 'text-rose-400' : ''
+                      }`}
                       dir="ltr"
                       placeholder="0"
                     />
                   </td>
-                  <td className="px-2 py-1.5 border border-gray-300 text-center font-bold bg-blue-50/50 text-blue-800" dir="ltr">
+                  <td className={`px-2 py-1.5 border border-gray-300 text-center font-bold ${
+                    isOff ? 'bg-rose-100/60 text-rose-800' : 'bg-blue-50/50 text-blue-800'
+                  }`} dir="ltr">
                     {dailyWage.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                   </td>
                   <td className="p-0 border border-gray-300">
                     <input
                       type="number"
+                      inputMode="decimal"
+                      pattern="[0-9]*"
                       value={emp.amount || ''}
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) => updateData(['employeeAdvances', index, 'amount'], Number(e.target.value))}
-                      className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center font-bold text-red-600"
+                      className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center font-bold text-red-600 focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg transition-all duration-150"
                       dir="ltr"
                       placeholder="0"
                     />
@@ -222,9 +254,12 @@ export const EmployeeAdvancesSection = () => {
                     <input
                       type="text"
                       value={emp.notes}
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) => updateData(['employeeAdvances', index, 'notes'], e.target.value)}
-                      className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center"
-                      placeholder="-"
+                      className={`w-full h-full px-2 py-1.5 bg-transparent outline-none text-center focus:bg-amber-50 focus:font-bold ${
+                        isOff ? 'text-rose-900' : ''
+                      }`}
+                      placeholder={isOff ? "عطلة (OFF)" : "-"}
                     />
                   </td>
                   <td className="p-1 text-center border border-gray-300 print:hidden">

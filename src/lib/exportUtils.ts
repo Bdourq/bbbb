@@ -12,18 +12,11 @@ export const exportToExcel = (data: ShiftData, calc: any) => {
   // 1. Summary Sheet (ملخص الجرد المالي)
   const summaryData = [
     { 'البيان': 'تقرير إغلاق الكاش اليومي - مطعم يحيى البيك', 'القيمة': '' },
-    { 'البيان': 'التاريخ', 'القيمة': data.date },
-    { 'البيان': 'الكاشير', 'القيمة': data.cashierName || '-' },
+    { 'البيان': 'تاريخ الإغلاق', 'القيمة': data.date },
+    { 'البيان': 'اسم الكاشير', 'القيمة': data.cashierName || '-' },
+    { 'البيان': 'حالة الشفت', 'القيمة': data.isClosed ? 'مغلق' : 'مفتوح' },
     { 'البيان': '', 'القيمة': '' },
-    { 'البيان': '--- حركة الكاش والمبيعات ---', 'القيمة': '' },
-    { 'البيان': 'النقد الافتتاحي', 'القيمة': data.cashAndSales.openingCash },
-    { 'البيان': 'اضافة ذمم', 'القيمة': addedReceivablesTotal },
-    { 'البيان': 'تسديد ذمم قديمة', 'القيمة': data.cashAndSales.paidOldReceivables },
-    { 'البيان': 'مبيعات', 'القيمة': data.cashAndSales.sales },
-    { 'البيان': 'مبيعات أخرى', 'القيمة': data.cashAndSales.otherSales },
-    { 'البيان': 'مجموع الكاش المتوفر', 'القيمة': calc.totalCash },
-    { 'البيان': '', 'القيمة': '' },
-    { 'البيان': '--- الجرد الفعلي ---', 'القيمة': '' },
+    { 'البيان': '--- ملخص الجرد الفعلي (الأولوية القصوى) ---', 'القيمة': '' },
     { 'البيان': 'نقد (الكاش الفعلي)', 'القيمة': data.actualInventory.actualCash },
     { 'البيان': 'فيزا', 'القيمة': data.actualInventory.visa },
     { 'البيان': 'Rt', 'القيمة': data.actualInventory.rt },
@@ -33,21 +26,33 @@ export const exportToExcel = (data: ShiftData, calc: any) => {
     { 'البيان': 'المحفظة', 'القيمة': data.actualInventory.wallet },
     { 'البيان': 'مجموع الجرد الفعلي', 'القيمة': calc.totalInventory },
     { 'البيان': '', 'القيمة': '' },
+    { 'البيان': '--- حركة الكاش والمبيعات ---', 'القيمة': '' },
+    { 'البيان': 'النقد الافتتاحي', 'القيمة': data.cashAndSales.openingCash },
+    { 'البيان': 'اضافة ذمم', 'القيمة': addedReceivablesTotal },
+    { 'البيان': 'تسديد ذمم قديمة', 'القيمة': data.cashAndSales.paidOldReceivables },
+    { 'البيان': 'مبيعات', 'القيمة': data.cashAndSales.sales },
+    { 'البيان': 'مبيعات أخرى', 'القيمة': data.cashAndSales.otherSales },
+    { 'البيان': 'مجموع الكاش المتوفر', 'القيمة': calc.totalCash },
+    { 'البيان': '', 'القيمة': '' },
     { 'البيان': '--- النتيجة النهائية ---', 'القيمة': '' },
     { 'البيان': 'نقص الكاش', 'القيمة': calc.cashShortage ? -calc.cashShortage : 0 },
-    { 'البيان': 'زيادة الكاش', 'القيمة': calc.cashSurplus }
+    { 'البيان': 'زيادة الكاش', 'القيمة': calc.cashSurplus },
+    { 'البيان': '', 'القيمة': '' },
+    { 'البيان': '--- توقيع وتذييل التقرير ---', 'القيمة': '' },
+    { 'البيان': 'الكاشير المسؤول', 'القيمة': data.cashierName || '-' },
+    { 'البيان': 'تاريخ التقرير', 'القيمة': data.date }
   ];
   const wsSummary = xlsx.utils.json_to_sheet(summaryData);
   wsSummary['!dir'] = 'rtl';
-  xlsx.utils.book_append_sheet(wb, wsSummary, "ملخص الإغلاق");
+  xlsx.utils.book_append_sheet(wb, wsSummary, "ملخص الجرد الإغلاق");
 
-  // 2. Detailed Expenses & Receivables Sheet (المصاريف والذمم)
+  // 2. Detailed Expenses & Receivables Sheet (المصاريف والذمم مرتبة حسب الأولوية)
   const flattenList = (list: any[], categoryName: string) => 
     list
       .filter(item => (item.label && item.label.trim()) || (Number(item.amount) !== 0))
       .map(item => ({ 'التصنيف': categoryName, 'البيان': item.label || '-', 'المبلغ': item.amount || 0 }));
 
-  const expensesData = [
+  const rawExpensesData = [
     ...flattenList(data.addCashReceivables || [], 'إضافة ذمم (للكاش)'),
     ...flattenList(data.purchases, 'مشتريات'),
     ...flattenList(data.otherExpenses, 'مصاريف أخرى'),
@@ -61,6 +66,9 @@ export const exportToExcel = (data: ShiftData, calc: any) => {
     ...flattenList(data.yahya, 'يحيى'),
     ...flattenList(data.spices, 'بهارات'),
   ];
+
+  // Sort by priority (items with non-zero amounts first)
+  const expensesData = rawExpensesData.sort((a, b) => Number(b.المبلغ) - Number(a.المبلغ));
   if (expensesData.length > 0) {
     const wsExpenses = xlsx.utils.json_to_sheet(expensesData);
     wsExpenses['!dir'] = 'rtl';

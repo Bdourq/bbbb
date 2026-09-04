@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { db } from '../lib/firebase';
 import { doc, onSnapshot, setDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { format } from 'date-fns';
+import { seededShiftData20260903 } from '../data/seed20260903';
 
 export type LineItem = {
   id: string;
@@ -9,10 +10,20 @@ export type LineItem = {
   amount: number;
 };
 
+export type CustodyItem = {
+  id: string;
+  type: 'out' | 'in'; // 'out' = خروج عهدة / سحب, 'in' = إعادة عهدة / إرجاع
+  personOrReason: string; // من هو الشخص أو البيان
+  amount: number;
+  time?: string;
+  notes?: string;
+};
+
 export type ShiftData = {
   isClosed?: boolean;
   date: string;
   cashierName: string;
+  custodyItems: CustodyItem[];
   purchases: LineItem[];
   addMerchantReceivables: LineItem[];
   payMerchantReceivables: LineItem[];
@@ -79,6 +90,7 @@ const defaultState: ShiftData = {
   isClosed: false,
   date: format(new Date(), 'yyyy-MM-dd'),
   cashierName: '',
+  custodyItems: [],
   purchases: [],
   addMerchantReceivables: [],
   payMerchantReceivables: [],
@@ -141,6 +153,8 @@ type StoreState = {
   removeLineItem: (listName: keyof ShiftData, id: string) => void;
   addEmployee: () => void;
   removeEmployee: (id: string) => void;
+  addCustodyItem: (type?: 'out' | 'in') => void;
+  removeCustodyItem: (id: string) => void;
   syncFromRemote: (data: ShiftData) => void;
   initSync: () => () => void;
   savedDates: string[];
@@ -149,13 +163,24 @@ type StoreState = {
   monthlyShortage: number;
   fetchMonthlyShortage: (cashierName: string, date: string) => Promise<void>;
   closeShift: () => void;
+  reopenShift: () => void;
 };
 
-// Helper to set nested object properties
-const setNestedProperty = (obj: any, path: (string | number)[], value: any) => {
-  const lastKey = path[path.length - 1];
-  const target = path.slice(0, -1).reduce((acc, key) => acc[key], obj);
-  target[lastKey] = value;
+// High-performance immutable nested updater (O(depth) instead of O(N) JSON serialization)
+const updateNestedState = (obj: any, path: (string | number)[], value: any): any => {
+  if (path.length === 0) return value;
+  const [head, ...tail] = path;
+  
+  if (Array.isArray(obj)) {
+    const index = Number(head);
+    const newArr = [...obj];
+    newArr[index] = tail.length > 0 ? updateNestedState(obj[index] ?? {}, tail, value) : value;
+    return newArr;
+  }
+  
+  const newObj = { ...obj };
+  newObj[head] = tail.length > 0 ? updateNestedState(obj[head] ?? {}, tail, value) : value;
+  return newObj;
 };
 
 let debounceTimeout: NodeJS.Timeout | null = null;
@@ -173,7 +198,7 @@ const syncToFirestore = (data: ShiftData) => {
 };
 
 export const useShiftStore = create<StoreState>((set, get) => ({
-  data: defaultState,
+  data: seededShiftData20260903,
   isLoading: true,
   savedDates: [],
   monthlyShortage: 0,
@@ -192,30 +217,25 @@ export const useShiftStore = create<StoreState>((set, get) => ({
       snapshot.forEach(doc => {
         const docData = doc.data() as ShiftData;
         if (docData.cashierName === cashierName && docData.date.startsWith(monthPrefix)) {
-          // Calculate shortage for this shift
-          // totalInventory = actualCash + visa + rt + maestro + priceDifference + advances + wallet +
-          // purchases + otherExpenses + abuAbdullah + equipment + addMerchantReceivables + apartment + adminExpenses + ewallet + payMerchantReceivables + yahya + spices
-          // totalCash = openingCash + addedReceivables - paidOldReceivables + sales + otherSales
-          // shortage = totalCash - totalInventory
           const totalInventory = (docData.actualInventory.actualCash || 0) + (docData.actualInventory.visa || 0) + (docData.actualInventory.rt || 0) + (docData.actualInventory.maestro || 0) + (docData.actualInventory.priceDifference || 0) + (docData.actualInventory.advances || 0) + (docData.actualInventory.wallet || 0) +
-            docData.purchases.reduce((sum, item) => sum + (item.amount || 0), 0) +
-            docData.otherExpenses.reduce((sum, item) => sum + (item.amount || 0), 0) +
-            docData.abuAbdullah.reduce((sum, item) => sum + (item.amount || 0), 0) +
-            docData.equipment.reduce((sum, item) => sum + (item.amount || 0), 0) +
-            docData.addMerchantReceivables.reduce((sum, item) => sum + (item.amount || 0), 0) +
-            docData.apartment.reduce((sum, item) => sum + (item.amount || 0), 0) +
-            docData.adminExpenses.reduce((sum, item) => sum + (item.amount || 0), 0) +
-            docData.ewallet.reduce((sum, item) => sum + (item.amount || 0), 0) +
-            docData.payMerchantReceivables.reduce((sum, item) => sum + (item.amount || 0), 0) +
-            docData.yahya.reduce((sum, item) => sum + (item.amount || 0), 0) +
-            docData.spices.reduce((sum, item) => sum + (item.amount || 0), 0);
+            (docData.purchases || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
+            (docData.otherExpenses || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
+            (docData.abuAbdullah || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
+            (docData.equipment || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
+            (docData.addMerchantReceivables || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
+            (docData.apartment || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
+            (docData.adminExpenses || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
+            (docData.ewallet || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
+            (docData.payMerchantReceivables || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
+            (docData.yahya || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
+            (docData.spices || []).reduce((sum, item) => sum + (item.amount || 0), 0);
           
           const cashInfo = docData.cashAndSales;
           const addedReceivablesTotal = docData.addCashReceivables 
             ? docData.addCashReceivables.reduce((sum, item) => sum + (item.amount || 0), 0)
-            : (cashInfo.addedReceivables || 0);
+            : (cashInfo?.addedReceivables || 0);
 
-          const totalExpectedCash = (cashInfo.openingCash || 0) + addedReceivablesTotal + (cashInfo.paidOldReceivables || 0) + (cashInfo.sales || 0) + (cashInfo.otherSales || 0);
+          const totalExpectedCash = (cashInfo?.openingCash || 0) + addedReceivablesTotal + (cashInfo?.paidOldReceivables || 0) + (cashInfo?.sales || 0) + (cashInfo?.otherSales || 0);
           const shortage = totalExpectedCash - totalInventory;
           if (shortage > 0) {
             totalShortage += shortage;
@@ -250,10 +270,7 @@ export const useShiftStore = create<StoreState>((set, get) => ({
   updateData: (path: (string | number)[], value: any) => {
     set((state) => {
       if (state.data.isClosed) return state; // Prevent updates if closed
-      const newData = JSON.parse(JSON.stringify(state.data)); // Deep clone
-      setNestedProperty(newData, path, value);
-      
-      // Compute dynamically derived values here if needed
+      const newData = updateNestedState(state.data, path, value);
       syncToFirestore(newData);
       return { data: newData };
     });
@@ -261,8 +278,10 @@ export const useShiftStore = create<StoreState>((set, get) => ({
 
   addLineItem: (listName: keyof ShiftData) => {
     set((state) => {
-      const newData = JSON.parse(JSON.stringify(state.data));
-      (newData[listName] as LineItem[]).push({ id: generateId(), label: '', amount: 0 });
+      if (state.data.isClosed) return state;
+      const currentList = (state.data[listName] as LineItem[]) || [];
+      const updatedList = [...currentList, { id: generateId(), label: '', amount: 0 }];
+      const newData = { ...state.data, [listName]: updatedList };
       syncToFirestore(newData);
       return { data: newData };
     });
@@ -270,8 +289,10 @@ export const useShiftStore = create<StoreState>((set, get) => ({
 
   removeLineItem: (listName: keyof ShiftData, id: string) => {
     set((state) => {
-      const newData = JSON.parse(JSON.stringify(state.data));
-      newData[listName] = (newData[listName] as LineItem[]).filter(item => item.id !== id);
+      if (state.data.isClosed) return state;
+      const currentList = (state.data[listName] as LineItem[]) || [];
+      const updatedList = currentList.filter(item => item.id !== id);
+      const newData = { ...state.data, [listName]: updatedList };
       syncToFirestore(newData);
       return { data: newData };
     });
@@ -279,16 +300,20 @@ export const useShiftStore = create<StoreState>((set, get) => ({
 
   addEmployee: () => {
     set((state) => {
-      const newData = JSON.parse(JSON.stringify(state.data));
-      newData.employeeAdvances.push({
-        id: generateId(),
-        employeeName: '',
-        amount: 0,
-        notes: '',
-        startTime: '',
-        endTime: '',
-        hourlyRate: 0
-      });
+      if (state.data.isClosed) return state;
+      const updatedEmployees = [
+        ...state.data.employeeAdvances,
+        {
+          id: generateId(),
+          employeeName: '',
+          amount: 0,
+          notes: '',
+          startTime: '',
+          endTime: '',
+          hourlyRate: 0
+        }
+      ];
+      const newData = { ...state.data, employeeAdvances: updatedEmployees };
       syncToFirestore(newData);
       return { data: newData };
     });
@@ -297,8 +322,41 @@ export const useShiftStore = create<StoreState>((set, get) => ({
   removeEmployee: (id: string) => {
     set((state) => {
       if (state.data.isClosed) return state;
-      const newData = JSON.parse(JSON.stringify(state.data));
-      newData.employeeAdvances = newData.employeeAdvances.filter((emp: any) => emp.id !== id);
+      const updatedEmployees = state.data.employeeAdvances.filter((emp: any) => emp.id !== id);
+      const newData = { ...state.data, employeeAdvances: updatedEmployees };
+      syncToFirestore(newData);
+      return { data: newData };
+    });
+  },
+
+  addCustodyItem: (type: 'out' | 'in' = 'out') => {
+    set((state) => {
+      if (state.data.isClosed) return state;
+      const currentTime = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      const currentList = state.data.custodyItems || [];
+      const updatedCustody = [
+        ...currentList,
+        {
+          id: generateId(),
+          type,
+          personOrReason: '',
+          amount: 0,
+          time: currentTime,
+          notes: ''
+        }
+      ];
+      const newData = { ...state.data, custodyItems: updatedCustody };
+      syncToFirestore(newData);
+      return { data: newData };
+    });
+  },
+
+  removeCustodyItem: (id: string) => {
+    set((state) => {
+      if (state.data.isClosed) return state;
+      const currentList = state.data.custodyItems || [];
+      const updatedCustody = currentList.filter((item: any) => item.id !== id);
+      const newData = { ...state.data, custodyItems: updatedCustody };
       syncToFirestore(newData);
       return { data: newData };
     });
@@ -312,6 +370,14 @@ export const useShiftStore = create<StoreState>((set, get) => ({
     });
   },
 
+  reopenShift: () => {
+    set((state) => {
+      const newData = { ...state.data, isClosed: false };
+      syncToFirestore(newData);
+      return { data: newData };
+    });
+  },
+
   syncFromRemote: (remoteData: ShiftData) => {
     // Migration for older documents
     if (!remoteData.addCashReceivables) {
@@ -320,6 +386,9 @@ export const useShiftStore = create<StoreState>((set, get) => ({
         label: remoteData.cashAndSales?.addedReceivablesDesc || '',
         amount: remoteData.cashAndSales?.addedReceivables || 0
       }];
+    }
+    if (!remoteData.custodyItems) {
+      remoteData.custodyItems = [];
     }
     set({ data: remoteData, isLoading: false });
   },
