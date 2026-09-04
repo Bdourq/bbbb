@@ -1,8 +1,7 @@
 import { create } from 'zustand';
 import { db } from '../lib/firebase';
-import { doc, onSnapshot, setDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, collection, getDocs, getDoc, query, orderBy, where, limit, deleteDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
-import { seededShiftData20260903 } from '../data/seed20260903';
 
 export type LineItem = {
   id: string;
@@ -19,10 +18,21 @@ export type CustodyItem = {
   notes?: string;
 };
 
+export type ShiftHandoverData = {
+  morningCashier: string;
+  eveningCashier: string;
+  sales: number;
+  actualCash: number;
+  expectedCash: number;
+  difference: number;
+  timestamp: string;
+};
+
 export type ShiftData = {
   isClosed?: boolean;
   date: string;
   cashierName: string;
+  shiftHandover?: ShiftHandoverData;
   custodyItems: CustodyItem[];
   purchases: LineItem[];
   addMerchantReceivables: LineItem[];
@@ -86,9 +96,13 @@ const defaultEmployees = [
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
+const START_DATE = '2026-09-04';
+const DEFAULT_OPENING_CASH = 40.25;
+const TODAY_DATE = format(new Date(), 'yyyy-MM-dd');
+
 const defaultState: ShiftData = {
   isClosed: false,
-  date: format(new Date(), 'yyyy-MM-dd'),
+  date: TODAY_DATE,
   cashierName: '',
   custodyItems: [],
   purchases: [],
@@ -104,7 +118,7 @@ const defaultState: ShiftData = {
   ewallet: [],
   addCashReceivables: [],
   cashAndSales: {
-    openingCash: 0,
+    openingCash: DEFAULT_OPENING_CASH,
     addedReceivablesDesc: '',
     addedReceivables: 0,
     paidOldReceivables: 0,
@@ -159,9 +173,12 @@ type StoreState = {
   initSync: () => () => void;
   savedDates: string[];
   fetchSavedDates: () => Promise<void>;
+  deleteReport: (date: string) => Promise<void>;
   setShiftDate: (date: string) => void;
   monthlyShortage: number;
   fetchMonthlyShortage: (cashierName: string, date: string) => Promise<void>;
+  previousDayActualCash: number;
+  fetchPreviousDayCash: (targetDate: string) => Promise<number>;
   closeShift: () => void;
   reopenShift: () => void;
 };
@@ -198,10 +215,33 @@ const syncToFirestore = (data: ShiftData) => {
 };
 
 export const useShiftStore = create<StoreState>((set, get) => ({
-  data: seededShiftData20260903,
+  data: { ...defaultState },
   isLoading: true,
-  savedDates: [],
+  savedDates: [START_DATE],
   monthlyShortage: 0,
+  previousDayActualCash: 0,
+
+  fetchPreviousDayCash: async (targetDate: string) => {
+    try {
+      const q = query(
+        collection(db, 'shifts'),
+        where('date', '<', targetDate),
+        orderBy('date', 'desc'),
+        limit(1)
+      );
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        const prevDocData = snapshot.docs[0].data() as ShiftData;
+        const prevCash = Number(prevDocData.actualInventory?.actualCash) || 0;
+        set({ previousDayActualCash: prevCash });
+        return prevCash;
+      }
+    } catch (error) {
+      console.error('Error fetching previous day cash:', error);
+    }
+    set({ previousDayActualCash: 0 });
+    return 0;
+  },
 
   fetchMonthlyShortage: async (cashierName: string, targetDate: string) => {
     if (!cashierName) {
@@ -252,17 +292,65 @@ export const useShiftStore = create<StoreState>((set, get) => ({
     try {
       const q = query(collection(db, 'shifts'), orderBy('date', 'desc'));
       const snapshot = await getDocs(q);
-      const dates = snapshot.docs.map(doc => doc.id);
-      set({ savedDates: dates });
+
+      const activeDates: string[] = [];
+
+      for (const docSnap of snapshot.docs) {
+        const id = docSnap.id;
+        // Purge old reports prior to system start date (2026-09-04)
+        if (id < START_DATE) {
+          try {
+            await deleteDoc(doc(db, 'shifts', id));
+          } catch (e) {
+            console.error('Error auto-cleaning report:', id, e);
+          }
+        } else {
+          activeDates.push(id);
+        }
+      }
+
+      if (!activeDates.includes(START_DATE)) {
+        activeDates.push(START_DATE);
+      }
+
+      activeDates.sort().reverse();
+      set({ savedDates: activeDates });
     } catch (error) {
       console.error('Error fetching dates', error);
+      set({ savedDates: [START_DATE] });
     }
   },
 
-  setShiftDate: (newDate: string) => {
+  deleteReport: async (targetDate: string) => {
+    try {
+      await deleteDoc(doc(db, 'shifts', targetDate));
+      const newDates = get().savedDates.filter(d => d !== targetDate);
+      if (!newDates.includes(START_DATE)) {
+        newDates.push(START_DATE);
+      }
+      newDates.sort().reverse();
+      set({ savedDates: newDates });
+      if (get().data.date === targetDate) {
+        get().setShiftDate(newDates[0] || START_DATE);
+      }
+    } catch (error) {
+      console.error('Error deleting report:', targetDate, error);
+    }
+  },
+
+  setShiftDate: async (newDate: string) => {
     if (debounceTimeout) clearTimeout(debounceTimeout);
+    const prevCash = await get().fetchPreviousDayCash(newDate);
+    const initialCash = prevCash > 0 ? prevCash : (newDate === START_DATE ? DEFAULT_OPENING_CASH : 0);
     set({ 
-      data: { ...defaultState, date: newDate }, 
+      data: { 
+        ...defaultState, 
+        date: newDate,
+        cashAndSales: {
+          ...defaultState.cashAndSales,
+          openingCash: initialCash
+        }
+      }, 
       isLoading: true 
     });
   },
@@ -395,19 +483,40 @@ export const useShiftStore = create<StoreState>((set, get) => ({
 
   initSync: () => {
     const date = get().data.date;
+    get().fetchPreviousDayCash(date);
     const shiftDoc = doc(db, 'shifts', date);
     
     // Subscribe to real-time changes
-    const unsubscribe = onSnapshot(shiftDoc, (docSnap) => {
+    const unsubscribe = onSnapshot(shiftDoc, async (docSnap) => {
       if (docSnap.exists()) {
         const remoteData = docSnap.data() as ShiftData;
-        // Basic check to avoid overwriting local un-debounced changes perfectly
-        // (In a perfect world we would compare timestamps, but for prototype this is fine)
+        if (!remoteData.cashAndSales?.openingCash || remoteData.cashAndSales.openingCash === 0) {
+          const prevCash = await get().fetchPreviousDayCash(date);
+          const initialCash = prevCash > 0 ? prevCash : (date === START_DATE ? DEFAULT_OPENING_CASH : 0);
+          if (initialCash > 0) {
+            remoteData.cashAndSales = remoteData.cashAndSales || {
+              openingCash: 0,
+              addedReceivablesDesc: '',
+              addedReceivables: 0,
+              paidOldReceivables: 0,
+              sales: 0,
+              otherSales: 0
+            };
+            remoteData.cashAndSales.openingCash = initialCash;
+            setDoc(shiftDoc, remoteData, { merge: true });
+          }
+        }
         get().syncFromRemote(remoteData);
       } else {
-        // Doc doesn't exist, we should create it
-        setDoc(shiftDoc, get().data);
-        set({ isLoading: false });
+        // Doc doesn't exist, create it with previous day cash or default opening cash
+        const prevCash = await get().fetchPreviousDayCash(date);
+        const initialCash = prevCash > 0 ? prevCash : (date === START_DATE ? DEFAULT_OPENING_CASH : 0);
+        const currentData = { ...get().data };
+        if (initialCash > 0 && (!currentData.cashAndSales?.openingCash || currentData.cashAndSales.openingCash === 0)) {
+          currentData.cashAndSales = { ...currentData.cashAndSales, openingCash: initialCash };
+        }
+        setDoc(shiftDoc, currentData);
+        set({ data: currentData, isLoading: false });
       }
     });
 

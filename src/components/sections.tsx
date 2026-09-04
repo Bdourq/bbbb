@@ -2,11 +2,11 @@ import React from 'react';
 import { useShiftStore } from '../store/useShiftStore';
 import { useCalculations } from '../hooks/useCalculations';
 import { useValidationStore } from '../store/useValidationStore';
-import { Card, CardHeader } from './ui';
-import { Plus, Trash2, AlertCircle } from 'lucide-react';
+import { Card, CardHeader, CardContent } from './ui';
+import { Plus, Trash2, AlertCircle, ExternalLink } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-export const CashDataSection = () => {
+export const CashDataSection = React.memo(() => {
   const cashAndSales = useShiftStore(state => state.data.cashAndSales);
   const addCashReceivables = useShiftStore(state => state.data.addCashReceivables) || [];
   const updateData = useShiftStore(state => state.updateData);
@@ -25,9 +25,17 @@ export const CashDataSection = () => {
     }
   };
 
+  const isEmpty = totalCash === 0 && 
+    !cashAndSales.openingCash && 
+    !cashAndSales.sales && 
+    !cashAndSales.otherSales && 
+    !cashAndSales.paidOldReceivables && 
+    (!addCashReceivables.length || addCashReceivables.every(i => !i.label && !i.amount));
+
   return (
     <Card 
       id="cashData" 
+      data-empty={isEmpty}
       className={cn(
         hasError && "ring-3 ring-rose-500 border-rose-500 shadow-md shadow-rose-100"
       )}
@@ -36,6 +44,11 @@ export const CashDataSection = () => {
         title="بيانات الكاش والمبيعات" 
         isError={hasError}
         errorMessage={errorMessage}
+        badge={totalCash > 0 ? (
+          <span className="text-xs font-black bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-md border border-emerald-200 print:hidden">
+            {totalCash.toLocaleString('en-US')}
+          </span>
+        ) : undefined}
       />
       
       {hasError && (
@@ -45,7 +58,7 @@ export const CashDataSection = () => {
         </div>
       )}
 
-      <div className="p-0">
+      <CardContent>
         <table className="w-full text-xs sm:text-sm text-right border-collapse border border-gray-300">
           <tbody>
             <tr className="border-b border-gray-300">
@@ -57,73 +70,78 @@ export const CashDataSection = () => {
                   pattern="[0-9]*"
                   value={cashAndSales.openingCash || ''}
                   onFocus={(e) => e.target.select()}
+                  onWheel={(e) => e.currentTarget.blur()}
                   onChange={(e) => handleInputChange(['cashAndSales', 'openingCash'], Number(e.target.value))}
                   className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg focus:text-indigo-900 transition-all duration-150"
                   dir="ltr" placeholder="0"
                 />
               </td>
             </tr>
-            {addCashReceivables.map((item, index) => (
-              <tr key={item.id} className="border-b border-gray-300 relative group">
-                <td className="p-0 bg-gray-50 border border-gray-300 w-1/2">
-                  <div className="flex flex-col sm:flex-row h-full relative">
-                    <div className="relative flex items-center justify-center min-w-[80px] bg-gray-50 px-2 py-1.5 border-b sm:border-b-0 sm:border-r-0 border-gray-300">
-                      {index === 0 && (
-                        <button 
-                          onClick={() => addLineItem('addCashReceivables')}
-                          className="absolute top-1 right-1 text-emerald-600 hover:bg-emerald-100 rounded print:hidden"
-                          title="إضافة ذمة جديدة"
-                        >
-                          <Plus size={14} />
-                        </button>
-                      )}
-                      {index > 0 && (
-                        <button 
-                          onClick={() => removeLineItem('addCashReceivables', item.id)}
-                          className="absolute top-1 right-1 text-red-600 hover:bg-red-100 rounded print:hidden"
-                          title="حذف"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                      <span className="font-bold text-gray-700 whitespace-nowrap text-xs">اضافة ذمم</span>
+            {addCashReceivables.map((item, index) => {
+              const isItemEmpty = !item.label && !item.amount;
+              return (
+                <tr key={item.id} className={cn("border-b border-gray-300 relative group", isItemEmpty && "print:hidden export-empty-row")}>
+                  <td className="p-0 bg-gray-50 border border-gray-300 w-1/2">
+                    <div className="flex flex-col sm:flex-row h-full relative">
+                      <div className="relative flex items-center justify-center min-w-[80px] bg-gray-50 px-2 py-1.5 border-b sm:border-b-0 sm:border-r-0 border-gray-300">
+                        {index === 0 && (
+                          <button 
+                            onClick={() => addLineItem('addCashReceivables')}
+                            className="absolute top-1 right-1 text-emerald-600 hover:bg-emerald-100 rounded print:hidden cursor-pointer"
+                            title="إضافة بند جديد"
+                          >
+                            <Plus size={14} />
+                          </button>
+                        )}
+                        {index > 0 && (
+                          <button 
+                            onClick={() => removeLineItem('addCashReceivables', item.id)}
+                            className="absolute top-1 right-1 text-red-600 hover:bg-red-100 rounded print:hidden cursor-pointer"
+                            title="حذف"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                        <span className="font-bold text-gray-700 whitespace-nowrap text-xs">سداد ذمم قديمة</span>
+                      </div>
+                      <input 
+                        type="text" 
+                        value={item.label || ''} 
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => {
+                          updateData(['addCashReceivables', index, 'label'], e.target.value);
+                          if (index === addCashReceivables.length - 1 && e.target.value) {
+                            addLineItem('addCashReceivables');
+                          }
+                        }} 
+                        className="w-full px-2 py-1 bg-white outline-none border-t sm:border-t-0 sm:border-r border-gray-300 text-xs text-center focus:bg-amber-50 focus:font-bold" 
+                        placeholder="التفاصيل..." 
+                      />
                     </div>
-                    <input 
-                      type="text" 
-                      value={item.label || ''} 
+                  </td>
+                  <td className="p-0 border border-gray-300">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      pattern="[0-9]*"
+                      value={item.amount || ''}
                       onFocus={(e) => e.target.select()}
+                      onWheel={(e) => e.currentTarget.blur()}
                       onChange={(e) => {
-                        updateData(['addCashReceivables', index, 'label'], e.target.value);
-                        if (index === addCashReceivables.length - 1 && e.target.value) {
+                        updateData(['addCashReceivables', index, 'amount'], Number(e.target.value));
+                        if (index === addCashReceivables.length - 1 && Number(e.target.value) > 0) {
                           addLineItem('addCashReceivables');
                         }
-                      }} 
-                      className="w-full px-2 py-1 bg-white outline-none border-t sm:border-t-0 sm:border-r border-gray-300 text-xs text-center focus:bg-amber-50 focus:font-bold" 
-                      placeholder="التفاصيل..." 
+                      }}
+                      className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg focus:text-indigo-900 transition-all duration-150"
+                      dir="ltr" placeholder="0"
                     />
-                  </div>
-                </td>
-                <td className="p-0 border border-gray-300">
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    pattern="[0-9]*"
-                    value={item.amount || ''}
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => {
-                      updateData(['addCashReceivables', index, 'amount'], Number(e.target.value));
-                      if (index === addCashReceivables.length - 1 && Number(e.target.value) > 0) {
-                        addLineItem('addCashReceivables');
-                      }
-                    }}
-                    className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg focus:text-indigo-900 transition-all duration-150"
-                    dir="ltr" placeholder="0"
-                  />
-                </td>
-              </tr>
-            ))}
+                  </td>
+                </tr>
+              );
+            })}
             <tr className="border-b border-gray-300">
-              <td className="px-2 py-1.5 bg-gray-50 border border-gray-300 font-bold text-gray-700 w-1/2 text-center">تسديد ذمم قديمة</td>
+              <td className="px-2 py-1.5 bg-gray-50 border border-gray-300 font-bold text-gray-700 w-1/2 text-center">إضافة ذمم جديدة</td>
               <td className="p-0 border border-gray-300">
                 <input
                   type="number"
@@ -131,6 +149,7 @@ export const CashDataSection = () => {
                   pattern="[0-9]*"
                   value={cashAndSales.paidOldReceivables || ''}
                   onFocus={(e) => e.target.select()}
+                  onWheel={(e) => e.currentTarget.blur()}
                   onChange={(e) => handleInputChange(['cashAndSales', 'paidOldReceivables'], Number(e.target.value))}
                   className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg focus:text-indigo-900 transition-all duration-150"
                   dir="ltr" placeholder="0"
@@ -146,6 +165,7 @@ export const CashDataSection = () => {
                   pattern="[0-9]*"
                   value={cashAndSales.sales || ''}
                   onFocus={(e) => e.target.select()}
+                  onWheel={(e) => e.currentTarget.blur()}
                   onChange={(e) => handleInputChange(['cashAndSales', 'sales'], Number(e.target.value))}
                   className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg focus:text-blue-900 transition-all duration-150"
                   dir="ltr" placeholder="0"
@@ -161,6 +181,7 @@ export const CashDataSection = () => {
                   pattern="[0-9]*"
                   value={cashAndSales.otherSales || ''}
                   onFocus={(e) => e.target.select()}
+                  onWheel={(e) => e.currentTarget.blur()}
                   onChange={(e) => handleInputChange(['cashAndSales', 'otherSales'], Number(e.target.value))}
                   className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg focus:text-indigo-900 transition-all duration-150"
                   dir="ltr" placeholder="0"
@@ -173,12 +194,14 @@ export const CashDataSection = () => {
             </tr>
           </tbody>
         </table>
-      </div>
+      </CardContent>
     </Card>
   );
-};
+});
 
-export const ActualInventorySection = () => {
+CashDataSection.displayName = 'CashDataSection';
+
+export const ActualInventorySection = React.memo(() => {
   const data = useShiftStore(state => state.data.actualInventory);
   const cashierName = useShiftStore(state => state.data.cashierName);
   const updateData = useShiftStore(state => state.updateData);
@@ -195,31 +218,46 @@ export const ActualInventorySection = () => {
     }
   };
 
+  const scrollToTable = (targetId: string) => {
+    if (!targetId) return;
+    const el = document.getElementById(targetId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('ring-4', 'ring-indigo-500', 'ring-offset-2');
+      setTimeout(() => {
+        el.classList.remove('ring-4', 'ring-indigo-500', 'ring-offset-2');
+      }, 2000);
+    }
+  };
+
   const inputFields = [
-    { key: 'actualCash', label: 'نقد (الكاش الفعلي)' },
-    { key: 'visa', label: 'فيزا' },
-    { key: 'rt', label: 'Rt' },
-    { key: 'maestro', label: 'مايسترو' },
-    { key: 'priceDifference', label: 'فرق سعر' },
-    { key: 'advances', label: 'سلف' },
-    { key: 'wallet', label: 'المحفظة' },
+    { key: 'actualCash', label: 'نقد (الكاش الفعلي)', targetId: 'cashData' },
+    { key: 'visa', label: 'فيزا', targetId: 'cashData' },
+    { key: 'rt', label: 'Rt', targetId: 'cashData' },
+    { key: 'maestro', label: 'مايسترو', targetId: 'cashData' },
+    { key: 'priceDifference', label: 'فرق سعر', targetId: 'cashData' },
+    { key: 'advances', label: 'سلف', targetId: 'employeeAdvances' },
+    { key: 'wallet', label: 'المحفظة', targetId: 'ewallet' },
   ];
 
   const displayFields = [
-    { label: 'مشتريات', value: calc.purchasesTotal },
-    { label: 'سداد ذمم تجار', value: calc.payMerchantTotal },
-    { label: 'مصاريف أخرى', value: calc.otherExpensesTotal },
-    { label: 'الشقة', value: calc.apartmentTotal },
-    { label: 'مصاريف إدارية', value: calc.adminExpensesTotal },
-    { label: 'يحيى', value: calc.yahyaTotal },
-    { label: 'أبو عبدالله', value: calc.abuAbdullahTotal },
-    { label: 'بهارات', value: calc.spicesTotal },
-    { label: 'معدات وصيانة', value: calc.equipmentTotal },
+    { label: 'مشتريات', value: calc.purchasesTotal, targetId: 'purchases' },
+    { label: 'سداد ذمم تجار', value: calc.payMerchantTotal, targetId: 'payMerchantReceivables' },
+    { label: 'مصاريف أخرى', value: calc.otherExpensesTotal, targetId: 'otherExpenses' },
+    { label: 'الشقة', value: calc.apartmentTotal, targetId: 'apartment' },
+    { label: 'مصاريف إدارية', value: calc.adminExpensesTotal, targetId: 'adminExpenses' },
+    { label: 'يحيى', value: calc.yahyaTotal, targetId: 'yahya' },
+    { label: 'أبو عبدالله', value: calc.abuAbdullahTotal, targetId: 'abuAbdullah' },
+    { label: 'بهارات', value: calc.spicesTotal, targetId: 'spices' },
+    { label: 'معدات وصيانة', value: calc.equipmentTotal, targetId: 'equipment' },
   ];
+
+  const isEmpty = calc.totalInventory === 0 && !Object.values(data).some(val => Boolean(val));
 
   return (
     <Card 
       id="actualInventory"
+      data-empty={isEmpty}
       className={cn(
         hasError && "ring-3 ring-rose-500 border-rose-500 shadow-md shadow-rose-100"
       )}
@@ -228,6 +266,11 @@ export const ActualInventorySection = () => {
         title="ملخص الجرد الفعلي" 
         isError={hasError}
         errorMessage={errorMessage}
+        badge={calc.totalInventory > 0 ? (
+          <span className="text-xs font-black bg-indigo-100 text-indigo-900 px-2 py-0.5 rounded-md border border-indigo-200 print:hidden">
+            {calc.totalInventory.toLocaleString('en-US')}
+          </span>
+        ) : undefined}
       />
 
       {hasError && (
@@ -237,12 +280,21 @@ export const ActualInventorySection = () => {
         </div>
       )}
 
-      <div className="p-0">
+      <CardContent>
         <table className="w-full text-xs sm:text-sm text-right border-collapse border border-gray-300">
           <tbody>
             {inputFields.map(field => (
               <tr key={field.key} className="border-b border-gray-300">
-                <td className="px-2 py-1.5 bg-gray-50 border border-gray-300 font-bold text-gray-700 w-1/2 text-center">{field.label}</td>
+                <td 
+                  onClick={() => scrollToTable(field.targetId)}
+                  className="px-2 py-1.5 bg-gray-50 border border-gray-300 font-bold text-gray-700 w-1/2 text-center cursor-pointer hover:bg-indigo-100/60 transition-colors group"
+                  title={`انقر للانتقال إلى جدول ${field.label}`}
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>{field.label}</span>
+                    <ExternalLink size={11} className="text-indigo-500 opacity-40 group-hover:opacity-100 print:hidden shrink-0" />
+                  </div>
+                </td>
                 <td className="p-0 border border-gray-300">
                   <input
                     type="number"
@@ -250,6 +302,7 @@ export const ActualInventorySection = () => {
                     pattern="[0-9]*"
                     value={data[field.key as keyof typeof data] || ''}
                     onFocus={(e) => e.target.select()}
+                    onWheel={(e) => e.currentTarget.blur()}
                     onChange={(e) => handleInputChange(field.key, Number(e.target.value))}
                     className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg focus:text-indigo-900 transition-all duration-150"
                     dir="ltr"
@@ -259,20 +312,44 @@ export const ActualInventorySection = () => {
               </tr>
             ))}
             {displayFields.map((field, idx) => (
-              <tr key={idx} className="border-b border-gray-300">
-                <td className="px-2 py-1.5 bg-gray-50 border border-gray-300 font-bold text-gray-700 text-center">{field.label}</td>
-                <td className="px-2 py-1.5 border border-gray-300 text-center bg-gray-50/50" dir="ltr">{field.value.toLocaleString()}</td>
+              <tr 
+                key={idx}
+                onClick={() => scrollToTable(field.targetId)}
+                className="border-b border-gray-300 hover:bg-indigo-50/80 cursor-pointer transition-colors group"
+                title={`انقر للانتقال لمعاينة بيانات جدول ${field.label}`}
+              >
+                <td className="px-2 py-1.5 bg-gray-50 group-hover:bg-indigo-100/60 border border-gray-300 font-bold text-gray-700 text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <span>{field.label}</span>
+                    <ExternalLink size={11} className="text-indigo-500 opacity-40 group-hover:opacity-100 print:hidden shrink-0" />
+                  </div>
+                </td>
+                <td className="px-2 py-1.5 border border-gray-300 text-center bg-gray-50/50 group-hover:bg-indigo-50/50 font-black text-indigo-900" dir="ltr">
+                  {field.value.toLocaleString('en-US')}
+                </td>
               </tr>
             ))}
-            <tr className="border-b border-gray-300 font-bold bg-gray-100">
+            <tr 
+              onClick={() => scrollToTable('actualInventory')}
+              className="border-b border-gray-300 font-bold bg-gray-100 hover:bg-indigo-100/40 cursor-pointer transition-colors"
+              title="مجموع الجرد الفعلي الإجمالي"
+            >
               <td className="px-2 py-2 border border-gray-300 text-gray-900 text-center text-sm">مجموع الجرد</td>
-              <td className="px-2 py-2 border border-gray-300 text-center text-sm font-black" dir="ltr">{calc.totalInventory.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td className="px-2 py-2 border border-gray-300 text-center text-sm font-black text-indigo-900" dir="ltr">{calc.totalInventory.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             </tr>
-            <tr className="border-b border-gray-300 font-bold text-red-700 bg-red-50">
+            <tr 
+              onClick={() => scrollToTable('cashData')}
+              className="border-b border-gray-300 font-bold text-red-700 bg-red-50 hover:bg-red-100/80 cursor-pointer transition-colors"
+              title="انقر للانتقال لجدول بيانات الكاش والمبيعات"
+            >
               <td className="px-2 py-2 border border-gray-300 text-center">نقص الكاش</td>
               <td className="px-2 py-2 border border-gray-300 text-center font-black" dir="ltr">{calc.cashShortage > 0 ? `-${calc.cashShortage.toFixed(2)}` : '-'}</td>
             </tr>
-            <tr className="border-b border-gray-300 font-bold text-green-700 bg-green-50">
+            <tr 
+              onClick={() => scrollToTable('cashData')}
+              className="border-b border-gray-300 font-bold text-green-700 bg-green-50 hover:bg-green-100/80 cursor-pointer transition-colors"
+              title="انقر للانتقال لجدول بيانات الكاش والمبيعات"
+            >
               <td className="px-2 py-2 border border-gray-300 text-center">زيادة الكاش</td>
               <td className="px-2 py-2 border border-gray-300 text-center font-black" dir="ltr">{calc.cashSurplus > 0 ? calc.cashSurplus.toFixed(2) : '-'}</td>
             </tr>
@@ -282,8 +359,10 @@ export const ActualInventorySection = () => {
             </tr>
           </tbody>
         </table>
-      </div>
+      </CardContent>
     </Card>
   );
-};
+});
+
+ActualInventorySection.displayName = 'ActualInventorySection';
 

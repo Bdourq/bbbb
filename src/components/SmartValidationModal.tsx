@@ -1,6 +1,8 @@
-import React from 'react';
-import { X, AlertTriangle, CheckCircle2, ArrowLeft, ShieldAlert, Sparkles } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, CheckCircle2, ArrowLeft, ShieldAlert, Sparkles, UserCheck } from 'lucide-react';
 import { useValidationStore } from '../store/useValidationStore';
+import { useShiftStore } from '../store/useShiftStore';
+import toast from 'react-hot-toast';
 
 interface SmartValidationModalProps {
   isOpen: boolean;
@@ -15,10 +17,30 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
 }) => {
   const errors = useValidationStore(state => state.errors);
   const scrollToError = useValidationStore(state => state.scrollToError);
+  
+  const cashierName = useShiftStore(state => state.data.cashierName);
+  const updateData = useShiftStore(state => state.updateData);
+
+  const [selectedCashier, setSelectedCashier] = useState(cashierName || '');
 
   if (!isOpen) return null;
 
-  const errorEntries = Object.entries(errors);
+  const handleCashierChange = (name: string) => {
+    setSelectedCashier(name);
+    updateData(['cashierName'], name);
+  };
+
+  const handleFinalConfirm = () => {
+    if (!selectedCashier.trim()) {
+      toast.error('خطوة إجبارية: يرجى تحديد اسم الكاشير المسؤول عن الإغلاق النهائي أولاً');
+      return;
+    }
+    updateData(['cashierName'], selectedCashier.trim());
+    onClose();
+    onConfirmForceClose?.();
+  };
+
+  const errorEntries = Object.entries(errors).filter(([key]) => key !== 'cashierName');
   const hasErrors = errorEntries.length > 0;
 
   const handleFixError = (key: string) => {
@@ -39,14 +61,36 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
           <X size={20} />
         </button>
 
-        <div className="flex items-center gap-3 mb-4 text-rose-600 border-b pb-3">
-          <div className="p-2.5 bg-rose-100 rounded-xl">
+        <div className="flex items-center gap-3 mb-4 text-indigo-600 border-b pb-3">
+          <div className="p-2.5 bg-indigo-100 rounded-xl text-indigo-700">
             <ShieldAlert size={28} />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-gray-900">نظام التحقق الذكي قبل الإغلاق</h3>
-            <p className="text-xs text-gray-500 mt-0.5">فحص دقيق لكافة الحقول ومطابقة الكاش لمنع الأخطاء المالية</p>
+            <h3 className="text-xl font-bold text-gray-900">نظام الإغلاق والتحقق الذكي</h3>
+            <p className="text-xs text-gray-500 mt-0.5">تحديد الكاشير المسائي المسؤول وفحص الحقول قبل الإغلاق النهائي</p>
           </div>
+        </div>
+
+        {/* MANDATORY CASHIER SELECTION SECTION */}
+        <div className="mb-5 bg-indigo-50/80 border-2 border-indigo-200 p-4 rounded-xl space-y-2">
+          <label className="block text-xs sm:text-sm font-extrabold text-indigo-950 flex items-center gap-1.5">
+            <UserCheck size={18} className="text-indigo-600" />
+            <span>تحديد الكاشير المسؤول عن الإغلاق النهائي (خطوة إجبارية):</span>
+          </label>
+          <select
+            value={selectedCashier}
+            onChange={(e) => handleCashierChange(e.target.value)}
+            className="w-full px-3 py-2.5 border-2 border-indigo-300 rounded-xl text-sm font-bold text-gray-900 bg-white outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">-- اختر اسم الكاشير النهائي --</option>
+            <option value="قصي البدور">قصي البدور</option>
+            <option value="أمجد شحادات">أمجد شحادات</option>
+          </select>
+          {!selectedCashier.trim() && (
+            <p className="text-[11px] font-bold text-rose-600 animate-pulse">
+              ⚠️ يرجى اختيار اسم الكاشير لتتمكن من إتمام الإغلاق وتأكيد التقرير.
+            </p>
+          )}
         </div>
 
         {hasErrors ? (
@@ -93,11 +137,9 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
               {onConfirmForceClose && (
                 <button
                   type="button"
-                  onClick={() => {
-                    onClose();
-                    onConfirmForceClose();
-                  }}
-                  className="w-full sm:w-auto px-4 py-2.5 text-xs font-bold text-gray-500 hover:text-red-600 transition-colors"
+                  disabled={!selectedCashier.trim()}
+                  onClick={handleFinalConfirm}
+                  className="w-full sm:w-auto px-4 py-2.5 text-xs font-bold text-gray-500 hover:text-red-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   إغلاق وتجاوز الفحص (استثنائي)
                 </button>
@@ -106,23 +148,21 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
 
           </div>
         ) : (
-          <div className="text-center py-6 space-y-4">
-            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-              <CheckCircle2 size={36} />
+          <div className="text-center py-4 space-y-4">
+            <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+              <CheckCircle2 size={32} />
             </div>
             <div>
-              <h4 className="text-lg font-bold text-gray-900">جميع البيانات مكتملة وجاهزة!</h4>
-              <p className="text-xs text-gray-600 mt-1">تم فحص كافة الجداول، والبيانات والأسماء مطابقة للشروط.</p>
+              <h4 className="text-lg font-bold text-gray-900">جميع البيانات الحسابية مكتملة وجاهزة!</h4>
+              <p className="text-xs text-gray-600 mt-1">تم فحص كافة الجداول ومطابقة الأرقام بنجاح.</p>
             </div>
             <button
-              onClick={() => {
-                onClose();
-                onConfirmForceClose?.();
-              }}
-              className="w-full px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm transition-colors shadow-md flex items-center justify-center gap-2"
+              disabled={!selectedCashier.trim()}
+              onClick={handleFinalConfirm}
+              className="w-full px-5 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white rounded-xl font-bold text-sm transition-colors shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
             >
               <Sparkles size={18} />
-              <span>تأكيد إغلاق الشفت وتصدير التقرير</span>
+              <span>تأكيد الكاشير ({selectedCashier || 'غير محدد'}) وإغلاق الشفت</span>
             </button>
           </div>
         )}

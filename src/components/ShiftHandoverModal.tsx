@@ -45,7 +45,17 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
   const handoverDifference = actualCash - expectedCash; // Positive = surplus, Negative = shortage
 
   const handleApplyHandover = () => {
-    // Update main store with entered values
+    const handoverObj = {
+      morningCashier: morningCashier || 'كاشير صباحي',
+      eveningCashier: eveningCashier || 'كاشير مسائي',
+      sales,
+      actualCash,
+      expectedCash,
+      difference: handoverDifference,
+      timestamp: new Date().toISOString()
+    };
+
+    updateData(['shiftHandover'], handoverObj);
     updateData(['cashAndSales', 'sales'], sales);
     updateData(['actualInventory', 'rt'], rt);
     updateData(['actualInventory', 'visa'], visa);
@@ -57,7 +67,7 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
     if (eveningCashier) {
       updateData(['cashierName'], eveningCashier);
     }
-    toast.success('تم اعتماد تسليم الشفت بنجاح وتحديث الكاش الافتتاحي للشفت المسائي');
+    toast.success('تم تسليم الشفت بنجاح: تم تسجيل زيادة/عجز الصباحي وتحديث الكاش الافتتاحي للمسائي');
     onClose();
   };
 
@@ -118,6 +128,7 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
                   value={sales}
                   onChange={(e) => setSales(Number(e.target.value))}
                   onFocus={(e) => e.target.select()}
+                  onWheel={(e) => e.currentTarget.blur()}
                   className="w-full px-3 py-2 border rounded-lg text-sm text-center bg-white font-bold text-blue-700"
                   placeholder="0"
                 />
@@ -129,6 +140,7 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
                   value={rt}
                   onChange={(e) => setRt(Number(e.target.value))}
                   onFocus={(e) => e.target.select()}
+                  onWheel={(e) => e.currentTarget.blur()}
                   className="w-full px-3 py-2 border rounded-lg text-sm text-center bg-white font-bold"
                   placeholder="0"
                 />
@@ -140,6 +152,7 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
                   value={visa}
                   onChange={(e) => setVisa(Number(e.target.value))}
                   onFocus={(e) => e.target.select()}
+                  onWheel={(e) => e.currentTarget.blur()}
                   className="w-full px-3 py-2 border rounded-lg text-sm text-center bg-white font-bold"
                   placeholder="0"
                 />
@@ -151,6 +164,7 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
                   value={maestro}
                   onChange={(e) => setMaestro(Number(e.target.value))}
                   onFocus={(e) => e.target.select()}
+                  onWheel={(e) => e.currentTarget.blur()}
                   className="w-full px-3 py-2 border rounded-lg text-sm text-center bg-white font-bold"
                   placeholder="0"
                 />
@@ -162,6 +176,7 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
                   value={actualCash}
                   onChange={(e) => setActualCash(Number(e.target.value))}
                   onFocus={(e) => e.target.select()}
+                  onWheel={(e) => e.currentTarget.blur()}
                   className="w-full px-3 py-2.5 border-2 border-indigo-400 rounded-lg text-base text-center bg-indigo-50 font-extrabold text-indigo-900 outline-none"
                   placeholder="0"
                 />
@@ -170,7 +185,7 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
 
             <div className="text-[11px] text-gray-500 pt-2 border-t flex justify-between">
               <span>النقد الافتتاحي والمصاريف والذمم مسحوبة تلقائياً من الجداول الرئيسية.</span>
-              <span className="font-bold text-gray-700">الكاش المتوقع: {expectedCash.toLocaleString()}</span>
+              <span className="font-bold text-gray-700">الكاش المتوقع: {expectedCash.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
             </div>
           </div>
 

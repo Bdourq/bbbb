@@ -1,5 +1,6 @@
 import * as xlsx from 'xlsx';
 import { toPng } from 'html-to-image';
+import jsPDF from 'jspdf';
 import { ShiftData } from '../store/useShiftStore';
 
 export const exportToExcel = (data: ShiftData, calc: any) => {
@@ -28,8 +29,8 @@ export const exportToExcel = (data: ShiftData, calc: any) => {
     { 'البيان': '', 'القيمة': '' },
     { 'البيان': '--- حركة الكاش والمبيعات ---', 'القيمة': '' },
     { 'البيان': 'النقد الافتتاحي', 'القيمة': data.cashAndSales.openingCash },
-    { 'البيان': 'اضافة ذمم', 'القيمة': addedReceivablesTotal },
-    { 'البيان': 'تسديد ذمم قديمة', 'القيمة': data.cashAndSales.paidOldReceivables },
+    { 'البيان': 'سداد ذمم قديمة', 'القيمة': addedReceivablesTotal },
+    { 'البيان': 'إضافة ذمم جديدة', 'القيمة': data.cashAndSales.paidOldReceivables },
     { 'البيان': 'مبيعات', 'القيمة': data.cashAndSales.sales },
     { 'البيان': 'مبيعات أخرى', 'القيمة': data.cashAndSales.otherSales },
     { 'البيان': 'مجموع الكاش المتوفر', 'القيمة': calc.totalCash },
@@ -50,7 +51,7 @@ export const exportToExcel = (data: ShiftData, calc: any) => {
   const flattenList = (list: any[], categoryName: string) => 
     list
       .filter(item => (item.label && item.label.trim()) || (Number(item.amount) !== 0))
-      .map(item => ({ 'التصنيف': categoryName, 'البيان': item.label || '-', 'المبلغ': item.amount || 0 }));
+      .map(item => ({ 'التصنيف': categoryName, 'البيان': item.label || (categoryName === 'المحفظة الإلكترونية' ? 'حركة محفظة' : '-'), 'المبلغ': item.amount || 0 }));
 
   const rawExpensesData = [
     ...flattenList(data.addCashReceivables || [], 'إضافة ذمم (للكاش)'),
@@ -129,6 +130,64 @@ export const exportToExcel = (data: ShiftData, calc: any) => {
 
 export const printDocument = () => {
   window.print();
+};
+
+export const exportToPdf = async (date: string) => {
+  const element = document.getElementById('report-content');
+  if (!element) return;
+
+  try {
+    element.classList.add('export-mode');
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    const filter = (node: HTMLElement) => {
+      if (node?.hasAttribute && node.hasAttribute('data-html2canvas-ignore')) return false;
+      if (node?.classList && typeof node.classList.contains === 'function' && node.classList.contains('print:hidden')) return false;
+      return true;
+    };
+
+    const dataUrl = await toPng(element, {
+      pixelRatio: 2,
+      backgroundColor: '#ffffff',
+      filter: filter,
+    });
+
+    element.classList.remove('export-mode');
+
+    // Create jsPDF instance in A4 Landscape orientation (297mm x 210mm)
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    const imgProps = pdf.getImageProperties(dataUrl);
+    const pdfWidth = pdf.internal.pageSize.getWidth(); // 297mm
+    const pdfHeight = pdf.internal.pageSize.getHeight(); // 210mm
+
+    const margin = 6;
+    const imgWidth = pdfWidth - (margin * 2); // 285mm
+    const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
+
+    let heightLeft = imgHeight;
+    let position = margin;
+
+    pdf.addImage(dataUrl, 'PNG', margin, position, imgWidth, imgHeight);
+    heightLeft -= (pdfHeight - (margin * 2));
+
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight + margin;
+      pdf.addPage();
+      pdf.addImage(dataUrl, 'PNG', margin, position, imgWidth, imgHeight);
+      heightLeft -= (pdfHeight - (margin * 2));
+    }
+
+    pdf.save(`تقرير_إغلاق_${date}.pdf`);
+  } catch (error) {
+    element.classList.remove('export-mode');
+    console.error('Error exporting PDF:', error);
+    window.print();
+  }
 };
 
 export const exportToImage = async (date: string) => {

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Download, FileText, Image as ImageIcon, Lock, ShieldCheck, Printer } from 'lucide-react';
+import { Download, FileText, Image as ImageIcon, Lock, ShieldCheck, Printer, FileDown } from 'lucide-react';
 import { useShiftStore } from '../store/useShiftStore';
 import { useCalculations } from '../hooks/useCalculations';
 import { useValidationStore } from '../store/useValidationStore';
 import { SmartValidationModal } from './SmartValidationModal';
-import { exportToExcel, printDocument, exportToImage } from '../lib/exportUtils';
+import { exportToExcel, printDocument, exportToImage, exportToPdf } from '../lib/exportUtils';
 import toast from 'react-hot-toast';
 
 export const ExportButtons = () => {
@@ -40,30 +40,37 @@ export const ExportButtons = () => {
     closeShift();
     toast.success('تم إغلاق الشفت بنجاح ✅');
     
-    const loadingToast = toast.loading('جاري تجهيز الصورة...');
+    const loadingToast = toast.loading('جاري تجهيز التقرير...');
     try {
       exportToImage(data.date).then(() => {
         toast.success('تم تصدير الصورة بنجاح', { id: loadingToast });
       });
     } catch (error) {
-      toast.error('حدث خطأ أثناء تصدير الصورة', { id: loadingToast });
+      toast.error('حدث خطأ أثناء التصدير', { id: loadingToast });
     }
   };
 
-  const handleExport = (action: 'excel' | 'pdf' | 'image') => {
-    // Basic cashier check
-    if (!data.cashierName?.trim()) {
-      triggerValidation(data, calc.totalCollected, calc.totalInventory);
-      toast.error('الرجاء إدخال اسم الكاشير قبل التصدير');
+  const handleExport = (action: 'excel' | 'pdf' | 'image' | 'print') => {
+    if (action === 'print') {
+      toast.success('جاري فتح نافذة الطباعة...');
+      setTimeout(() => {
+        printDocument();
+      }, 100);
       return;
     }
 
-    // Action
-    if (action === 'excel') {
+    if (action === 'pdf') {
+      const loadingToast = toast.loading('جاري إنشاء ملف PDF...');
+      exportToPdf(data.date).then(() => {
+        toast.success('تم تحميل ملف PDF بنجاح 📄', { id: loadingToast });
+      }).catch((err) => {
+        console.error(err);
+        toast.error('حدث خطأ أثناء إنشاء PDF، جاري التحويل للطباعة...', { id: loadingToast });
+        printDocument();
+      });
+    } else if (action === 'excel') {
       exportToExcel(data, calc);
       toast.success('تم تصدير ملف Excel بنجاح');
-    } else if (action === 'pdf') {
-      printDocument();
     } else if (action === 'image') {
       const loadingToast = toast.loading('جاري تجهيز الصورة...');
       exportToImage(data.date).then(() => {
@@ -78,7 +85,7 @@ export const ExportButtons = () => {
 
   return (
     <>
-      <div className="flex gap-2.5 print:hidden flex-wrap justify-end items-center">
+      <div className="flex gap-2 print:hidden flex-wrap justify-end items-center">
         {!data.isClosed && (
           <button
             onClick={handleCloseShiftClick}
@@ -95,22 +102,30 @@ export const ExportButtons = () => {
         )}
         <button
           onClick={() => handleExport('pdf')}
-          className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold transition-all shadow-sm text-sm"
-          title="طباعة التقرير فوراً أو حفظه كـ PDF بالجداول فقط"
+          className="flex items-center gap-1.5 px-3.5 py-2 bg-red-700 hover:bg-red-800 text-white rounded-xl font-bold transition-all shadow-sm text-sm cursor-pointer"
+          title="تحميل ملف PDF يحوي الجداول النشطة فقط"
+        >
+          <FileDown size={17} className="text-white" />
+          <span>تحميل PDF</span>
+        </button>
+        <button
+          onClick={() => handleExport('print')}
+          className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold transition-all shadow-sm text-sm cursor-pointer"
+          title="طباعة فورية عبر الطابعة"
         >
           <Printer size={17} className="text-emerald-400" />
-          <span>طباعة فورية / PDF</span>
+          <span>طباعة</span>
         </button>
         <button
           onClick={() => handleExport('excel')}
-          className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-colors shadow-sm text-sm"
+          className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-colors shadow-sm text-sm cursor-pointer"
         >
           <Download size={17} />
           <span>Excel</span>
         </button>
         <button
           onClick={() => handleExport('image')}
-          className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors shadow-sm text-sm"
+          className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors shadow-sm text-sm cursor-pointer"
         >
           <ImageIcon size={17} />
           <span>صورة</span>

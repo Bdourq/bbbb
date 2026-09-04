@@ -20,12 +20,6 @@ export const useValidationStore = create<ValidationErrorState>((set, get) => ({
     const errors: Record<string, string> = {};
     const errorList: string[] = [];
 
-    // 1. Cashier Name
-    if (!data.cashierName?.trim()) {
-      errors['cashierName'] = 'يرجى إدخال اسم الكاشير المسؤول في أعلى التقرير';
-      errorList.push('اسم الكاشير المسؤول غير مدخل');
-    }
-
     // 2. Cash and Sales
     if ((Number(data.cashAndSales.openingCash) || 0) === 0 && (Number(data.cashAndSales.sales) || 0) === 0) {
       errors['cashData'] = 'يرجى إدخال النقد الافتتاحي ومبيعات اليوم في قسم حركات الكاش';

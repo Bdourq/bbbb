@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Menu, X, Calendar, ChevronLeft, ShieldAlert, ArrowRightLeft, HandCoins, AlertCircle, Lock, Unlock, Printer } from 'lucide-react';
+import { Menu, X, Calendar, ChevronLeft, ShieldAlert, ArrowRightLeft, HandCoins, AlertCircle, Lock, Unlock, Printer, Trash2 } from 'lucide-react';
 import { useShiftStore } from './store/useShiftStore';
 import { useCalculations } from './hooks/useCalculations';
 import { useValidationStore } from './store/useValidationStore';
@@ -17,11 +17,10 @@ import { format, differenceInCalendarDays, parseISO } from 'date-fns';
 import { db } from './lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { exportToImage, printDocument } from './lib/exportUtils';
-import { seededShiftData20260903 } from './data/seed20260903';
 import { cn } from './lib/utils';
 
 function App() {
-  const { data, isLoading, initSync, updateData, setShiftDate, fetchSavedDates, savedDates, closeShift, reopenShift } = useShiftStore();
+  const { data, isLoading, initSync, updateData, setShiftDate, fetchSavedDates, savedDates, deleteReport, closeShift, reopenShift, previousDayActualCash } = useShiftStore();
   const calc = useCalculations();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showDeficitModal, setShowDeficitModal] = useState(false);
@@ -40,10 +39,9 @@ function App() {
     daysDiff = 0;
   }
 
-  // Check if shift startup requirements are met (Date, Day, Cashier Name, and Opening Cash entered)
+  // Check if shift startup requirements are met (Date, Day, and Opening Cash entered)
   const isShiftStarted = Boolean(
     data.date && 
-    data.cashierName && 
     (data.cashAndSales.openingCash !== undefined && data.cashAndSales.openingCash !== null && String(data.cashAndSales.openingCash) !== '')
   );
 
@@ -53,10 +51,36 @@ function App() {
   const isReadOnly = isLockedByAge || data.isClosed;
 
   useEffect(() => {
+    const preventScrollNumberChange = (e: WheelEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && target.tagName === 'INPUT' && (target as HTMLInputElement).type === 'number') {
+        target.blur();
+      }
+    };
+    window.addEventListener('wheel', preventScrollNumberChange, { passive: true });
+    return () => window.removeEventListener('wheel', preventScrollNumberChange);
+  }, []);
+
+  useEffect(() => {
     fetchSavedDates();
     const unsubscribe = initSync();
     return () => unsubscribe();
   }, [initSync, data.date, fetchSavedDates]);
+
+  // Explicit debounced auto-save hook to ensure instant auto-syncing to Firestore upon user input
+  useEffect(() => {
+    if (!data.date) return;
+    const saveTimer = setTimeout(async () => {
+      try {
+        const shiftDoc = doc(db, 'shifts', data.date);
+        await setDoc(shiftDoc, data, { merge: true });
+      } catch (err) {
+        console.error('Auto-save error:', err);
+      }
+    }, 800);
+
+    return () => clearTimeout(saveTimer);
+  }, [data]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -134,6 +158,39 @@ function App() {
   const adminSuggestions = ["ضمان", "كهرباء", "فاتورة نت", "فاتورة اتصال", "ضيافة", "رعاية", "قرطاسية"];
   const spiceSuggestions = ["بهارات شاورما", "كبا", "مشكل", "جنات", "قشرة", "شطة زبدة", "مدخن ملونين", "بطاطا", "صبغة حا", "صبغة رز"];
 
+  // Dynamic sorting algorithm: Sort active tables by total amount descending, active tables first
+  const allDynamicListsConfigs = [
+    { key: 'purchases', title: 'مشتريات', total: calc.purchasesTotal, suggestions: purchasesSuggestions },
+    { key: 'payMerchantReceivables', title: 'سداد ذمم تجار', total: calc.payMerchantTotal, suggestions: baseMerchantSuggestions },
+    { key: 'otherExpenses', title: 'مصاريف أخرى', total: calc.otherExpensesTotal },
+    { key: 'apartment', title: 'الشقة', total: calc.apartmentTotal, suggestions: personalSuggestions },
+    { key: 'adminExpenses', title: 'مصاريف إدارية', total: calc.adminExpensesTotal, suggestions: adminSuggestions },
+    { key: 'abuAbdullah', title: 'أبو عبدالله', total: calc.abuAbdullahTotal },
+    { key: 'equipment', title: 'معدات وصيانة', total: calc.equipmentTotal },
+    { key: 'ewallet', title: 'المحفظة الإلكترونية', total: calc.ewalletTotal, hideLabel: true },
+    { key: 'addMerchantReceivables', title: 'إضافة ذمم تجار', total: calc.addMerchantTotal, suggestions: baseMerchantSuggestions },
+    { key: 'yahya', title: 'يحيى', total: calc.yahyaTotal, suggestions: personalSuggestions },
+    { key: 'spices', title: 'بهارات', total: calc.spicesTotal, suggestions: spiceSuggestions },
+  ];
+
+  const checkHasContent = (key: string, total: number) => {
+    if (total > 0) return true;
+    const items = (data as any)[key];
+    if (Array.isArray(items)) {
+      return items.some((item: any) => Boolean(item?.label?.trim()) || Boolean(item?.amount));
+    }
+    return false;
+  };
+
+  const activeLists = allDynamicListsConfigs
+    .filter(cfg => checkHasContent(cfg.key, cfg.total))
+    .sort((a, b) => b.total - a.total);
+
+  const emptyLists = allDynamicListsConfigs
+    .filter(cfg => !checkHasContent(cfg.key, cfg.total));
+
+  const orderedDynamicLists = [...activeLists, ...emptyLists];
+
   const weekdays = [
     { label: 'الجمعة', value: 5 },
     { label: 'السبت', value: 6 },
@@ -207,7 +264,7 @@ function App() {
                 setShowDeficitModal(true);
                 setIsSidebarOpen(false);
               }}
-              className="w-full flex items-center gap-2 p-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold border border-rose-200 transition-colors text-sm"
+              className="w-full flex items-center gap-2 p-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold border border-rose-200 transition-colors text-sm cursor-pointer"
             >
               <ShieldAlert size={18} />
               <span>عجز الكاش (تقرير الكشيرية)</span>
@@ -217,68 +274,63 @@ function App() {
                 setShowHandoverModal(true);
                 setIsSidebarOpen(false);
               }}
-              className="w-full flex items-center gap-2 p-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-200 transition-colors text-sm"
+              className="w-full flex items-center gap-2 p-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-200 transition-colors text-sm cursor-pointer"
             >
               <ArrowRightLeft size={18} />
               <span>تسليم الشفت (صباحي ➔ مسائي)</span>
             </button>
-            <button
-              onClick={() => {
-                setIsSidebarOpen(false);
-                const el = document.getElementById('custodySection');
-                if (el) {
-                  el.scrollIntoView({ behavior: 'smooth' });
-                  el.classList.add('ring-4', 'ring-indigo-400');
-                  setTimeout(() => el.classList.remove('ring-4', 'ring-indigo-400'), 2000);
-                }
-              }}
-              className="w-full flex items-center gap-2 p-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold border border-amber-200 transition-colors text-sm shadow-xs"
-            >
-              <HandCoins size={18} className="text-amber-600" />
-              <span>جدول العهدة (الكاش الخارج والعائد)</span>
-            </button>
-            <button
-              onClick={() => {
-                try {
-                  const shiftDoc = doc(db, 'shifts', seededShiftData20260903.date);
-                  setDoc(shiftDoc, seededShiftData20260903, { merge: true });
-                  useShiftStore.getState().syncFromRemote(seededShiftData20260903);
-                  toast.success('تمت تعبئة كافة بيانات الكشف الورقي طبقاً للأصل بنجاح ✅');
-                  setIsSidebarOpen(false);
-                } catch {
-                  useShiftStore.getState().syncFromRemote(seededShiftData20260903);
-                  toast.success('تمت تعبئة بيانات الكشف بنجاح');
-                  setIsSidebarOpen(false);
-                }
-              }}
-              className="w-full flex items-center gap-2 p-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold border border-emerald-200 transition-colors text-sm shadow-xs cursor-pointer"
-            >
-              <Calendar size={18} className="text-emerald-600" />
-              <span>تعبئة كشف اليوم المرفق (الخميس 3/9)</span>
-            </button>
           </div>
 
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">التقارير السابقة</h3>
+          <div className="flex items-center justify-between mb-2 px-1">
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">التقارير السابقة</h3>
+            <span className="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold">
+              تلقائي 1 كل شهر 🧹
+            </span>
+          </div>
+
+          <div className="p-2 mb-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 leading-relaxed">
+            💡 يتم أرشفة وتنظيف التقارير تلقائياً في 1 من كل شهر مع الحفاظ على التقرير المعتمد.
+          </div>
+
           {savedDates.length === 0 ? (
             <div className="text-center text-gray-500 py-8">لا توجد تقارير سابقة</div>
           ) : (
-            savedDates.map(d => (
-              <button
-                key={d}
-                onClick={() => {
-                  setShiftDate(d);
-                  setIsSidebarOpen(false);
-                }}
-                className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors ${
-                  data.date === d 
-                    ? 'bg-blue-50 border-blue-200 text-blue-700 font-bold' 
-                    : 'bg-white hover:bg-gray-50 text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <span>{d}</span>
-                <ChevronLeft size={16} className={data.date === d ? "text-blue-500" : "text-gray-400"} />
-              </button>
-            ))
+            <div className="space-y-1.5">
+              {savedDates.map(d => (
+                <div 
+                  key={d}
+                  className={`w-full flex items-center justify-between p-2.5 rounded-lg border transition-colors ${
+                    data.date === d 
+                      ? 'bg-blue-50 border-blue-200 text-blue-700 font-bold' 
+                      : 'bg-white hover:bg-gray-50 text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <button
+                    onClick={() => {
+                      setShiftDate(d);
+                      setIsSidebarOpen(false);
+                    }}
+                    className="flex-1 flex items-center justify-between text-right cursor-pointer"
+                  >
+                    <span>{d}</span>
+                    <ChevronLeft size={16} className={data.date === d ? "text-blue-500" : "text-gray-400"} />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`هل أنت تأكد من حذف تقرير تاريخ ${d}؟`)) {
+                        deleteReport(d);
+                        toast.success(`تم حذف تقرير ${d} بنجاح`);
+                      }
+                    }}
+                    className="mr-2 text-red-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors cursor-pointer"
+                    title="حذف التقرير"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -363,59 +415,44 @@ function App() {
               />
             </div>
 
-            {/* 3. Cashier Selector */}
-            <div className="flex items-center gap-1.5 relative">
-              <label className="text-xs sm:text-sm text-gray-600 font-medium">الكاشير:</label>
-              <div className="flex flex-col relative" id="cashierName">
-                <select
-                  disabled={isReadOnly}
-                  value={data.cashierName}
-                  onChange={(e) => {
-                    updateData(['cashierName'], e.target.value);
-                    if (e.target.value.trim() && cashierError) {
-                      clearError('cashierName');
-                    }
-                  }}
-                  className={cn(
-                    "px-3 py-1.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm font-bold bg-white w-36 transition-all",
-                    isReadOnly && "bg-gray-50 text-gray-700",
-                    cashierError && "ring-3 ring-rose-500 border-rose-500 bg-rose-50 text-rose-700"
-                  )}
-                >
-                  <option value="">-- اختر الكاشير --</option>
-                  <option value="قصي البدور">قصي البدور</option>
-                  <option value="أمجد شحادات">أمجد شحادات</option>
-                </select>
-                {cashierError && (
-                  <span className="absolute -bottom-5 right-0 text-[10px] font-bold text-rose-600 whitespace-nowrap flex items-center gap-0.5 animate-pulse">
-                    <AlertCircle size={10} />
-                    {cashierError}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* 4. Opening Cash (Header Direct Input) */}
+            {/* 3. Opening Cash (Header Direct Input) */}
             <div className="flex items-center gap-1.5">
               <label className="text-xs sm:text-sm text-gray-600 font-medium">النقد الافتتاحي:</label>
-              <input 
-                type="number"
-                inputMode="decimal"
-                pattern="[0-9]*"
-                dir="ltr"
-                disabled={isReadOnly}
-                value={data.cashAndSales.openingCash || ''}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  updateData(['cashAndSales', 'openingCash'], val);
-                  if (errors['cashData']) {
-                    clearError('cashData');
-                  }
-                }}
-                placeholder="0.00"
-                className="w-24 px-2.5 py-1.5 border rounded-lg text-xs sm:text-sm font-extrabold text-center text-indigo-900 bg-amber-50/50 border-amber-200 outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-all print:font-bold print:border-none print:p-0"
-              />
+              <div className="flex items-center gap-1">
+                <input 
+                  type="number"
+                  inputMode="decimal"
+                  pattern="[0-9]*"
+                  dir="ltr"
+                  disabled={isReadOnly}
+                  value={data.cashAndSales.openingCash || ''}
+                  onFocus={(e) => e.target.select()}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    updateData(['cashAndSales', 'openingCash'], val);
+                    if (errors['cashData']) {
+                      clearError('cashData');
+                    }
+                  }}
+                  placeholder="0.00"
+                  className="w-24 px-2.5 py-1.5 border rounded-lg text-xs sm:text-sm font-extrabold text-center text-indigo-900 bg-amber-50/50 border-amber-200 outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-all print:font-bold print:border-none print:p-0"
+                />
+                {previousDayActualCash > 0 && (
+                  <button
+                    type="button"
+                    disabled={isReadOnly}
+                    onClick={() => {
+                      updateData(['cashAndSales', 'openingCash'], previousDayActualCash);
+                      toast.success(`تم اختيار النقد الافتتاحي (${previousDayActualCash} د.أ) بناءً على النقد الفعلي لليوم السابق`);
+                    }}
+                    className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-md text-[11px] font-bold transition-colors cursor-pointer print:hidden shrink-0"
+                    title="انقر لتطبيق النقد الفعلي لاليوم السابق كـ نقد افتتاحي"
+                  >
+                    ⚡ السابق: {previousDayActualCash} د.أ
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </header>
@@ -452,7 +489,7 @@ function App() {
             <div>
               <p className="font-bold text-base">يرجى استكمال بيانات بدء الشفت أولاً لفتح الجداول والإدخال</p>
               <p className="text-xs text-blue-700 mt-1">
-                يتم فتح الشفت والبدء بالجرد فور تحديد: <span className="font-bold underline">اليوم</span>، و<span className="font-bold underline">التاريخ</span>، واختيار <span className="font-bold underline">اسم الكاشير (قصي البدور أو أمجد شحادات)</span>، وإدخال <span className="font-bold underline">النقد الافتتاحي</span> يدوياً في الشريط العلوي.
+                يتم فتح الشفت والبدء بالجرد فور تحديد: <span className="font-bold underline">اليوم والتاريخ</span>، وإدخال أو تأكيد <span className="font-bold underline">النقد الافتتاحي</span> يدوياً في الشريط العلوي (ويتم تحديد الكاشير إدبارياً عند الإغلاق الكامل بنهاية اليوم).
               </p>
             </div>
           </div>
@@ -470,56 +507,44 @@ function App() {
           </div>
         )}
 
-        <div className={`transition-opacity duration-300 ${isReadOnly || (!isShiftStarted && !data.isClosed) ? 'pointer-events-none opacity-50 select-none' : ''}`}>
+        <div className={`transition-opacity duration-300 print:opacity-100 print:pointer-events-auto print:select-text ${isReadOnly || (!isShiftStarted && !data.isClosed) ? 'pointer-events-none opacity-50 select-none' : ''}`}>
           
           {/* Custody (العهدة - الكاش الخارج والعائد - أعلى الصفحة داخلي فقط) */}
           <div className="mb-4 print:hidden">
             <CustodySection />
           </div>
 
-          {/* Top Grid: 4 columns layout to exactly match PDF */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 print:grid-cols-4 print:gap-2 export-grid-4">
+          {/* Top Grid: 4 columns in screen mode, 2 wide columns in Print / Image Export */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 print:grid-cols-2 print:gap-3 export-grid-2">
           
-          {/* Column 1 (Rightmost in RTL) */}
-          <div className="space-y-4 print:space-y-2">
-            <DynamicList listKey="purchases" title="مشتريات" total={calc.purchasesTotal} suggestions={purchasesSuggestions} />
-            <DynamicList listKey="otherExpenses" title="مصاريف أخرى" total={calc.otherExpensesTotal} />
-            <DynamicList listKey="abuAbdullah" title="أبو عبدالله" total={calc.abuAbdullahTotal} />
-            <DynamicList listKey="equipment" title="معدات وصيانة" total={calc.equipmentTotal} />
-          </div>
-          
-          {/* Column 2 */}
-          <div className="space-y-4 print:space-y-2">
-            <DynamicList listKey="addMerchantReceivables" title="إضافة ذمم تجار" total={calc.addMerchantTotal} suggestions={baseMerchantSuggestions} />
-            <DynamicList listKey="apartment" title="الشقة" total={calc.apartmentTotal} suggestions={personalSuggestions} />
-            <DynamicList listKey="adminExpenses" title="مصاريف إدارية" total={calc.adminExpensesTotal} suggestions={adminSuggestions} />
-            <DynamicList listKey="ewallet" title="المحفظة الإلكترونية" total={calc.ewalletTotal} />
-          </div>
-          
-          {/* Column 3 */}
-          <div className="space-y-4 print:space-y-2">
-            <DynamicList listKey="payMerchantReceivables" title="سداد ذمم تجار" total={calc.payMerchantTotal} suggestions={baseMerchantSuggestions} />
-            <DynamicList listKey="yahya" title="يحيى" total={calc.yahyaTotal} suggestions={personalSuggestions} />
-            <DynamicList listKey="spices" title="بهارات" total={calc.spicesTotal} suggestions={spiceSuggestions} />
-          </div>
+            {/* 1. Column 1: Main Summaries (Cash & Sales Data + Actual Inventory Summary stacked on top of each other) */}
+            <div className="space-y-4 print:space-y-3 export-space-y">
+              <CashDataSection />
+              <ActualInventorySection />
+            </div>
 
-          {/* Column 4 (Leftmost in RTL) */}
-          <div className="space-y-4 print:space-y-2">
-            <CashDataSection />
-            <ActualInventorySection />
+            {/* 2. Dynamic Tables: Active tables containing data are dynamically sorted first by total amount */}
+            {orderedDynamicLists.map((cfg) => (
+              <DynamicList
+                key={cfg.key}
+                listKey={cfg.key as any}
+                title={cfg.title}
+                total={cfg.total}
+                suggestions={cfg.suggestions}
+                hideLabel={cfg.hideLabel}
+              />
+            ))}
+
+            {/* 3. Kitchen & Production Sections */}
+            <KitchenConsumptionSection />
+            <ProductionInventorySection />
+
+            {/* 4. Employee Attendance & Advances Section */}
+            <div className="col-span-full print:col-span-2 export-col-span-2">
+              <EmployeeAdvancesSection />
+            </div>
+
           </div>
-        </div>
-
-        {/* Lower Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 print:mt-4 print:grid-cols-2 print:gap-2 export-grid-2">
-          <KitchenConsumptionSection />
-          <ProductionInventorySection />
-        </div>
-
-        {/* Advances */}
-        <div className="mt-6">
-          <EmployeeAdvancesSection />
-        </div>
 
         </div>
 
