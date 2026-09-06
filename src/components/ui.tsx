@@ -53,13 +53,15 @@ export const CardHeader = ({
   action, 
   isError, 
   errorMessage,
-  badge
+  badge,
+  headerClassName
 }: { 
   title: string; 
   action?: React.ReactNode; 
   isError?: boolean; 
   errorMessage?: string;
   badge?: React.ReactNode;
+  headerClassName?: string;
 }) => {
   const { isOpen, toggle, collapsible } = useContext(CardContext);
 
@@ -69,12 +71,12 @@ export const CardHeader = ({
       className={cn(
         "px-3 py-2 flex justify-between items-center transition-colors select-none",
         collapsible && "cursor-pointer hover:bg-gray-200/70 active:bg-gray-200",
-        isError ? "bg-rose-100 border-b border-rose-300 text-rose-900" : "bg-gray-100 border-b border-gray-300 print:bg-gray-200"
+        isError ? "bg-rose-100 border-b border-rose-300 text-rose-900" : (headerClassName || "bg-gray-100 border-b border-gray-300 print:bg-gray-200")
       )}
     >
       <div className="flex items-center gap-2 min-w-0">
         {isError && <AlertCircle size={16} className="text-rose-600 shrink-0 animate-bounce" />}
-        <h3 className={cn("font-bold text-sm truncate", isError ? "text-rose-900" : "text-gray-800")}>{title}</h3>
+        <h3 className={cn("font-bold text-sm truncate", isError ? "text-rose-900" : headerClassName ? "text-white font-black text-base" : "text-gray-800")}>{title}</h3>
         {badge}
       </div>
       <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>

@@ -201,16 +201,14 @@ export const exportToPdf = async (date: string) => {
 };
 
 export const exportToImage = async (date: string) => {
-  const mainElement = document.getElementById('cash-report-content');
-  const employeeElement = document.getElementById('employeeAdvances');
-  if (!mainElement) return;
+  const element = document.getElementById('report-content');
+  if (!element) return;
   
   try {
-    mainElement.classList.add('export-mode');
-    if (employeeElement) employeeElement.classList.add('export-mode');
+    element.classList.add('export-mode');
     
     // Allow browser to apply styles before rendering
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise(resolve => setTimeout(resolve, 250));
 
     const filter = (node: HTMLElement) => {
       // Exclude elements with data-html2canvas-ignore or print:hidden
@@ -223,10 +221,9 @@ export const exportToImage = async (date: string) => {
       return true;
     };
 
-    // 1. Export Main Tables Image (High Clarity)
-    const mainDataUrl = await toPng(mainElement, {
+    const dataUrl = await toPng(element, {
       pixelRatio: 3,
-      backgroundColor: '#ffffff',
+      backgroundColor: '#f9fafb',
       filter: filter,
       style: {
         transform: 'scale(1)',
@@ -234,35 +231,27 @@ export const exportToImage = async (date: string) => {
       }
     });
     
-    const link1 = document.createElement('a');
-    link1.download = `اغلاق_كاش_${date}.png`;
-    link1.href = mainDataUrl;
-    link1.click();
+    const dayOfWeekIndex = new Date(date).getDay();
+    const weekdaysMap: Record<number, string> = {
+      5: 'الجمعة',
+      6: 'السبت',
+      0: 'الأحد',
+      1: 'الاثنين',
+      2: 'الثلاثاء',
+      3: 'الأربعاء',
+      4: 'الخميس'
+    };
+    const dayLabel = weekdaysMap[dayOfWeekIndex] || 'اليوم';
 
-    // 2. Export Employee Advances Table Image Separately (High Clarity)
-    if (employeeElement) {
-      await new Promise(resolve => setTimeout(resolve, 400));
-      const employeeDataUrl = await toPng(employeeElement, {
-        pixelRatio: 3,
-        backgroundColor: '#ffffff',
-        filter: filter,
-        style: {
-          transform: 'scale(1)',
-          transformOrigin: 'top left'
-        }
-      });
-
-      const link2 = document.createElement('a');
-      link2.download = `اغلاق_جدول_الموظفين_${date}.png`;
-      link2.href = employeeDataUrl;
-      link2.click();
-    }
+    const link = document.createElement('a');
+    link.download = `تقرير_الجرد_${dayLabel}_${date}.png`;
+    link.href = dataUrl;
+    link.click();
     
-    mainElement.classList.remove('export-mode');
-    if (employeeElement) employeeElement.classList.remove('export-mode');
+    element.classList.remove('export-mode');
   } catch (error) {
-    mainElement.classList.remove('export-mode');
-    if (employeeElement) employeeElement.classList.remove('export-mode');
+    const element = document.getElementById('report-content');
+    if (element) element.classList.remove('export-mode');
     console.error('Error exporting image:', error);
     throw error;
   }

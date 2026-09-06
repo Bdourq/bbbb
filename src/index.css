@@ -74,6 +74,10 @@ input[type="number"]:focus {
     padding: 0 !important;
     background: transparent !important;
   }
+
+  .export-mode .export-header {
+    display: block !important;
+  }
   
   /* Hide all non-printable and empty elements */
   .print\:hidden,

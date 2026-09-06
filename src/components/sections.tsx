@@ -38,15 +38,17 @@ export const CashDataSection = React.memo(() => {
       id="cashData" 
       data-empty={isEmpty}
       className={cn(
+        "border-2 border-indigo-400 shadow-sm bg-indigo-50/10",
         hasError && "ring-3 ring-rose-500 border-rose-500 shadow-md shadow-rose-100"
       )}
     >
       <CardHeader 
         title="بيانات الكاش والمبيعات" 
+        headerClassName="bg-indigo-600 text-white border-b border-indigo-700"
         isError={hasError}
         errorMessage={errorMessage}
         badge={totalCash > 0 ? (
-          <span className="text-xs font-black bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-md border border-emerald-200 print:hidden">
+          <span className="text-xs font-black bg-white text-indigo-900 px-2 py-0.5 rounded-md border border-indigo-200">
             {totalCash.toLocaleString('en-US')}
           </span>
         ) : undefined}
@@ -362,15 +364,17 @@ export const ActualInventorySection = React.memo(() => {
       id="actualInventory"
       data-empty={isEmpty}
       className={cn(
+        "border-2 border-emerald-400 shadow-sm bg-emerald-50/10",
         hasError && "ring-3 ring-rose-500 border-rose-500 shadow-md shadow-rose-100"
       )}
     >
       <CardHeader 
         title="ملخص الجرد الفعلي" 
+        headerClassName="bg-emerald-600 text-white border-b border-emerald-700"
         isError={hasError}
         errorMessage={errorMessage}
         badge={calc.totalInventory > 0 ? (
-          <span className="text-xs font-black bg-indigo-100 text-indigo-900 px-2 py-0.5 rounded-md border border-indigo-200 print:hidden">
+          <span className="text-xs font-black bg-white text-emerald-900 px-2 py-0.5 rounded-md border border-emerald-200">
             {calc.totalInventory.toLocaleString('en-US')}
           </span>
         ) : undefined}

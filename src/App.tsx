@@ -245,6 +245,16 @@ function App() {
     <div className="min-h-screen bg-gray-50/50 font-sans text-gray-900" dir="rtl" id="report-content">
       <Toaster position="top-center" reverseOrder={false} />
       
+      {/* Export Header Banner (Visible during image export and print) */}
+      <div className="hidden print:block export-header mb-6 text-center bg-white p-6 rounded-2xl shadow-xs border-2 border-indigo-600">
+        <h1 className="text-2xl font-black text-indigo-950 tracking-tight">مطعم يحيى البيك - تقرير الجرد اليومي</h1>
+        <div className="flex justify-center items-center gap-6 mt-3 text-sm font-bold text-gray-700 bg-indigo-50/60 py-2 px-4 rounded-xl max-w-md mx-auto">
+          <span>اليوم: <strong className="text-indigo-900">{weekdays.find(w => w.value === new Date(data.date).getDay())?.label || ''}</strong></span>
+          <span className="text-gray-300">|</span>
+          <span>التاريخ: <strong className="text-indigo-900" dir="ltr">{data.date}</strong></span>
+        </div>
+      </div>
+      
       {/* Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
