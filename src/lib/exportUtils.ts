@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
+import JSZip from 'jszip';
 import { ShiftData } from '../store/useShiftStore';
 import restaurantLogo from '../assets/logo.jpeg';
 
@@ -65,20 +66,20 @@ const EXPORT_FILTER = (node: HTMLElement) => {
 export const exportToImage = async (date: string, target: ExportImageTarget = 'both') => {
   const dayLabel = getDayLabel(date);
 
-  const captureElement = async (elementId: string, fallbackId: string, filename: string) => {
+  const captureElementDataUrl = async (elementId: string, fallbackId: string): Promise<string | null> => {
     const element = document.getElementById(elementId) || document.getElementById(fallbackId);
     if (!element) {
       console.warn(`Element with ID '${elementId}' or '${fallbackId}' not found for export.`);
-      return;
+      return null;
     }
 
     try {
       element.classList.add('export-mode');
       await new Promise(resolve => setTimeout(resolve, 300));
 
-      // High-resolution 300 DPI capture
+      // Ultra-high resolution capture (pixelRatio 3.5 = ~350-400 DPI equivalent)
       const dataUrl = await toPng(element, {
-        pixelRatio: 3,
+        pixelRatio: 3.5,
         backgroundColor: '#ffffff',
         filter: EXPORT_FILTER,
         style: {
@@ -90,32 +91,85 @@ export const exportToImage = async (date: string, target: ExportImageTarget = 'b
       });
 
       element.classList.remove('export-mode');
-
-      const link = document.createElement('a');
-      link.download = filename;
-      link.href = dataUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      return dataUrl;
     } catch (error) {
       element.classList.remove('export-mode');
-      console.error(`Error exporting image (${filename}):`, error);
+      console.error(`Error capturing image (${elementId}):`, error);
       throw error;
     }
   };
 
-  if (target === 'cash' || target === 'both') {
-    const cashFilename = `إغلاق كشف إغلاق تقرير الكاش اليومي في ${date} ${dayLabel}.png`;
-    await captureElement('cash-report-export', 'cash-report-content', cashFilename);
-  }
-
   if (target === 'both') {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // 1. Capture Cash Report image with ultra-high resolution
+    const cashDataUrl = await captureElementDataUrl('cash-report-export', 'cash-report-content');
+    
+    await new Promise(resolve => setTimeout(resolve, 250));
+
+    // 2. Capture Employee Report image with ultra-high resolution
+    const empDataUrl = await captureElementDataUrl('employee-report-export', 'employeeAdvances');
+
+    if (!cashDataUrl && !empDataUrl) {
+      throw new Error('لم يتم العثور على عناصر التقرير للتصدير.');
+    }
+
+    // 3. Package both images inside a single ZIP file named by Day and Date
+    const zip = new JSZip();
+    const folderName = `تقرير_إغلاق_${dayLabel}_${date}`;
+    const folder = zip.folder(folderName) || zip;
+
+    if (cashDataUrl) {
+      const base64Cash = cashDataUrl.replace(/^data:image\/png;base64,/, '');
+      folder.file(`1_تقرير_إغلاق_الكاش_اليومي_${dayLabel}_${date}.png`, base64Cash, { base64: true });
+    }
+
+    if (empDataUrl) {
+      const base64Emp = empDataUrl.replace(/^data:image\/png;base64,/, '');
+      folder.file(`2_تقرير_سلف_وحضور_الموظفين_${dayLabel}_${date}.png`, base64Emp, { base64: true });
+    }
+
+    // 4. Generate and download the ZIP file
+    const zipBlob = await zip.generateAsync({
+      type: 'blob',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 }
+    });
+
+    const zipFilename = `تقرير_إغلاق_${dayLabel}_${date}.zip`;
+    const link = document.createElement('a');
+    link.download = zipFilename;
+    link.href = URL.createObjectURL(zipBlob);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(link.href), 1500);
+    return;
   }
 
-  if (target === 'employees' || target === 'both') {
-    const empFilename = `إغلاق تقرير الموظفين اليومي في ${date} ${dayLabel}.png`;
-    await captureElement('employee-report-export', 'employeeAdvances', empFilename);
+  // Single target export (download PNG directly if specifically requested)
+  if (target === 'cash') {
+    const cashDataUrl = await captureElementDataUrl('cash-report-export', 'cash-report-content');
+    if (cashDataUrl) {
+      const filename = `تقرير_إغلاق_الكاش_اليومي_${dayLabel}_${date}.png`;
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = cashDataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  }
+
+  if (target === 'employees') {
+    const empDataUrl = await captureElementDataUrl('employee-report-export', 'employeeAdvances');
+    if (empDataUrl) {
+      const filename = `تقرير_سلف_وحضور_الموظفين_${dayLabel}_${date}.png`;
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = empDataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   }
 };
 

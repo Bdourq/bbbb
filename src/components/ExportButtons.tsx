@@ -67,21 +67,21 @@ export const ExportButtons = () => {
 
   const handleExportImages = (target: ExportImageTarget = 'both') => {
     setShowImageMenu(false);
-    let msg = 'جاري تجهيز الصورتين (إغلاق الكاش + إغلاق جدول الموظفين)...';
-    if (target === 'cash') msg = 'جاري تجهيز صورة إغلاق الكاش...';
-    if (target === 'employees') msg = 'جاري تجهيز صورة إغلاق جدول الموظفين...';
+    let msg = 'جاري التقاط الصورتين بدقة فائقة وتجميع الملف...';
+    if (target === 'cash') msg = 'جاري تجهيز صورة إغلاق الكاش بدقة فائقة...';
+    if (target === 'employees') msg = 'جاري تجهيز صورة إغلاق جدول الموظفين بدقة فائقة...';
 
     const loadingToast = toast.loading(msg);
     exportToImage(data.date, target).then(() => {
       if (target === 'both') {
-        toast.success('تم تصدير صورة إغلاق الكاش وصورة إغلاق جدول الموظفين بنجاح ✅', { id: loadingToast });
+        toast.success('تم تصدير ملف الصور المضغوط (ZIP) بنجاح 🖼️📦', { id: loadingToast });
       } else if (target === 'cash') {
         toast.success('تم تصدير صورة إغلاق الكاش بنجاح ✅', { id: loadingToast });
       } else {
         toast.success('تم تصدير صورة إغلاق جدول الموظفين بنجاح ✅', { id: loadingToast });
       }
     }).catch(() => {
-      toast.error('حدث خطأ أثناء تصدير الصورة', { id: loadingToast });
+      toast.error('حدث خطأ أثناء تصدير الصور', { id: loadingToast });
     });
   };
 
