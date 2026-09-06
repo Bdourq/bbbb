@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Menu, X, Calendar, ChevronLeft, ShieldAlert, ArrowRightLeft, HandCoins, AlertCircle, Lock, Unlock, Printer, Trash2, CheckCircle2 } from 'lucide-react';
 import { useShiftStore } from './store/useShiftStore';
 import { useCalculations } from './hooks/useCalculations';
@@ -138,8 +138,58 @@ function App() {
   const ohdaSuggestions = [
     "عهده سيف", "عهده الزعبي", "عهده سعد", "عهده نابلسي", "عهده يحيى"
   ];
-  
-  const purchasesSuggestions = [...baseMerchantSuggestions, ...ohdaSuggestions];
+
+  // Saved custom merchant suggestions state (persisted in localStorage)
+  const [customMerchantSuggestions, setCustomMerchantSuggestions] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('custom_merchant_suggestions');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Automatically record any new merchant/purchase statement typed in reports
+  useEffect(() => {
+    const newLabels = new Set<string>();
+    const checkAndAdd = (items: Array<{ label: string }> | undefined) => {
+      items?.forEach(item => {
+        const trimmed = item?.label?.trim();
+        if (trimmed && trimmed.length > 1 && !baseMerchantSuggestions.includes(trimmed)) {
+          newLabels.add(trimmed);
+        }
+      });
+    };
+
+    checkAndAdd(data.purchases);
+    checkAndAdd(data.payMerchantReceivables);
+    checkAndAdd(data.addMerchantReceivables);
+
+    if (newLabels.size > 0) {
+      setCustomMerchantSuggestions(prev => {
+        const merged = Array.from(new Set([...prev, ...Array.from(newLabels)]));
+        if (merged.length !== prev.length) {
+          try {
+            localStorage.setItem('custom_merchant_suggestions', JSON.stringify(merged));
+          } catch (e) {
+            console.error('Failed to save custom merchant suggestions', e);
+          }
+          return merged;
+        }
+        return prev;
+      });
+    }
+  }, [data.purchases, data.payMerchantReceivables, data.addMerchantReceivables]);
+
+  // Dynamic merchant suggestions merging base and user-typed items
+  const dynamicMerchantSuggestions = useMemo(() => {
+    return Array.from(new Set([...baseMerchantSuggestions, ...customMerchantSuggestions]));
+  }, [customMerchantSuggestions]);
+
+  const purchasesSuggestions = useMemo(() => {
+    return Array.from(new Set([...dynamicMerchantSuggestions, ...ohdaSuggestions]));
+  }, [dynamicMerchantSuggestions]);
+
   const personalSuggestions = ["اوردر", "اغراض"];
   const adminSuggestions = ["ضمان", "كهرباء", "فاتورة نت", "فاتورة اتصال", "ضيافة", "رعاية", "قرطاسية"];
   const spiceSuggestions = ["بهارات شاورما", "كبا", "مشكل", "جنات", "قشرة", "شطة زبدة", "مدخن ملونين", "بطاطا", "صبغة حا", "صبغة رز"];
@@ -147,14 +197,14 @@ function App() {
 
   const allDynamicListsConfigs = [
     { key: 'purchases', title: 'مشتريات', total: calc.purchasesTotal, suggestions: purchasesSuggestions },
-    { key: 'payMerchantReceivables', title: 'سداد ذمم تجار', total: calc.payMerchantTotal, suggestions: baseMerchantSuggestions },
+    { key: 'payMerchantReceivables', title: 'سداد ذمم تجار', total: calc.payMerchantTotal, suggestions: dynamicMerchantSuggestions },
     { key: 'otherExpenses', title: 'مصاريف أخرى', total: calc.otherExpensesTotal, suggestions: otherExpensesSuggestions },
     { key: 'apartment', title: 'الشقة', total: calc.apartmentTotal, suggestions: personalSuggestions },
     { key: 'adminExpenses', title: 'مصاريف إدارية', total: calc.adminExpensesTotal, suggestions: adminSuggestions },
     { key: 'abuAbdullah', title: 'أبو عبدالله', total: calc.abuAbdullahTotal },
     { key: 'equipment', title: 'معدات وصيانة', total: calc.equipmentTotal },
     { key: 'ewallet', title: 'المحفظة الإلكترونية', total: calc.ewalletTotal, hideLabel: true },
-    { key: 'addMerchantReceivables', title: 'إضافة ذمم تجار', total: calc.addMerchantTotal, suggestions: baseMerchantSuggestions },
+    { key: 'addMerchantReceivables', title: 'إضافة ذمم تجار', total: calc.addMerchantTotal, suggestions: dynamicMerchantSuggestions },
     { key: 'yahya', title: 'يحيى', total: calc.yahyaTotal, suggestions: personalSuggestions },
     { key: 'spices', title: 'بهارات', total: calc.spicesTotal, suggestions: spiceSuggestions },
   ];
