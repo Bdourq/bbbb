@@ -228,15 +228,28 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
 
         {/* CASHIER & TWO SHIFT SELECTION: ONLY IF THERE IS SHORTAGE OR SURPLUS */}
         {hasDifference ? (
-          <div className="mb-5 bg-gradient-to-br from-rose-50/90 to-indigo-50/60 border-2 border-rose-300 p-4 rounded-xl space-y-3.5">
-            {/* رأس اللوحة */}
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <label className="text-xs sm:text-sm font-extrabold text-rose-950 flex items-center gap-1.5">
-                <UserCheck size={18} className="text-rose-600" />
-                <span>
-                  توثيق الفارق ({totalDiffType === 'shortage' ? `عجز ${totalDiffAmount.toFixed(2)} د.أ` : `زيادة ${totalDiffAmount.toFixed(2)} د.أ`}):
+          <div className={cn(
+            "mb-5 p-4 rounded-2xl space-y-3.5 border-2 shadow-sm",
+            totalDiffType === 'shortage'
+              ? "bg-gradient-to-br from-rose-50/90 via-rose-50/50 to-orange-50/40 border-rose-300"
+              : "bg-gradient-to-br from-emerald-50/90 via-emerald-50/50 to-teal-50/40 border-emerald-300"
+          )}>
+            {/* رأس اللوحة - إشارة واضحة لموجب أو سالب الكاش */}
+            <div className="flex items-center justify-between flex-wrap gap-2 border-b pb-2.5 border-gray-200/80">
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  "p-2 rounded-xl text-white font-black text-xs flex items-center gap-1",
+                  totalDiffType === 'shortage' ? "bg-rose-600 shadow-rose-200" : "bg-emerald-600 shadow-emerald-200"
+                )}>
+                  {totalDiffType === 'shortage' ? '🔻 عجز كاش (سالب)' : '🔺 زيادة كاش (موجب)'}
                 </span>
-              </label>
+                <span className="text-sm sm:text-base font-black text-gray-900" dir="ltr">
+                  {totalDiffType === 'shortage' ? '-' : '+'}{totalDiffAmount.toFixed(2)} د.أ
+                </span>
+              </div>
+              <span className="text-xs font-extrabold text-gray-700">
+                يرجى تحديد الشفت والكاشير المسؤول:
+              </span>
             </div>
 
             {/* أزرار التبديل: كاشير واحد أم الكاشيرين مجتمعين */}
@@ -532,14 +545,20 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
               <p className="text-xs text-gray-600 mt-1">تم فحص كافة الجداول ومطابقة الأرقام بنجاح.</p>
             </div>
             <button
-              disabled={hasDifference && ((morningType !== 'exact' && morningAmount > 0 && !morningCashier.trim()) || (eveningType !== 'exact' && eveningAmount > 0 && !eveningCashier.trim()) || (morningAmount <= 0 && eveningAmount <= 0 && (calc.cashShortage > 0.009 || calc.cashSurplus > 0.009)))}
+              disabled={hasDifference && (
+                (assignMode === 'single' && !morningCashier?.trim() && !eveningCashier?.trim()) ||
+                (assignMode === 'single' && morningAmount <= 0 && eveningAmount <= 0) ||
+                (assignMode === 'split' && morningAmount > 0 && !morningCashier?.trim()) ||
+                (assignMode === 'split' && eveningAmount > 0 && !eveningCashier?.trim()) ||
+                (assignMode === 'split' && morningAmount <= 0 && eveningAmount <= 0)
+              )}
               onClick={handleFinalConfirm}
               className="w-full px-5 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white rounded-xl font-bold text-sm transition-colors shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
             >
               <Sparkles size={18} />
               <span>
                 {hasDifference
-                  ? 'تأكيد توثيق فوارق الشفتين وإغلاق اليوم النهائي'
+                  ? 'تأكيد توثيق فوارق الكاشير وإغلاق الشفت'
                   : 'تأكيد إغلاق الشفت النهائي (الكاش مطابق)'}
               </span>
             </button>

@@ -32,32 +32,7 @@ export const useValidationStore = create<ValidationErrorState>((set, get) => ({
       errorList.push('الجرد الفعلي (الكاش المعدود) غير مدخل');
     }
 
-    // 4. Dynamic lists with missing labels
-    const listsToCheck: Array<{ key: keyof ShiftData; title: string }> = [
-      { key: 'purchases', title: 'مشتريات' },
-      { key: 'otherExpenses', title: 'مصاريف أخرى' },
-      { key: 'abuAbdullah', title: 'أبو عبدالله' },
-      { key: 'equipment', title: 'معدات وصيانة' },
-      { key: 'addMerchantReceivables', title: 'إضافة ذمم تجار' },
-      { key: 'apartment', title: 'الشقة' },
-      { key: 'adminExpenses', title: 'مصاريف إدارية' },
-      { key: 'ewallet', title: 'المحفظة الإلكترونية' },
-      { key: 'payMerchantReceivables', title: 'سداد ذمم تجار' },
-      { key: 'yahya', title: 'يحيى' },
-      { key: 'spices', title: 'بهارات' },
-      { key: 'addCashReceivables', title: 'إضافة ذمم كاش' },
-    ];
-
-    for (const listInfo of listsToCheck) {
-      const items = (data[listInfo.key] as any[]) || [];
-      const hasEmptyLabel = items.some(item => (Number(item.amount) || 0) > 0 && !item.label?.trim());
-      if (hasEmptyLabel) {
-        errors[listInfo.key as string] = `يوجد مبالغ في جدول (${listInfo.title}) بدون كتابة البيان التوضيحي`;
-        errorList.push(`جدول (${listInfo.title}): مبالغ مسجلة بدون بيان`);
-      }
-    }
-
-    // 5. Custody items check (تذكير بالعهدة المعلقة سحب أو إيداع عند الإغلاق)
+    // 4. Custody items check (تذكير بالعهدة المعلقة سحب أو إيداع عند الإغلاق)
     const custodyItems = (data.custodyItems as any[]) || [];
     const totalCustodyOut = custodyItems
       .filter(item => item.type === 'out')
