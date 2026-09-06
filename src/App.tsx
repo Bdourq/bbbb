@@ -595,8 +595,8 @@ function App() {
               </div>
             </div>
 
-            {/* Export Footer for Cash Report (Appears in Print, Image, and PDF exports) */}
-            <ExportFooter date={data.date} className="hidden print:flex export-mode:flex" />
+            {/* Export Footer for Cash Report (Appears in Screen, Print, Image, and PDF exports) */}
+            <ExportFooter id="export-footer-cash" date={data.date} />
           </div>
 
           {/* 4. Employee Attendance & Advances Section (Exported separately as Image 2) */}
@@ -613,21 +613,21 @@ function App() {
             <EmployeeAdvancesSection />
 
             {/* Export Footer for Employee Report */}
-            <ExportFooter date={data.date} className="hidden print:flex export-mode:flex" />
+            <ExportFooter id="export-footer-employee" date={data.date} />
           </div>
 
         </div>
 
         {/* Professional Website Footer */}
         <footer className="mt-12 pt-6 pb-4 border-t border-slate-200/80 text-center print:hidden" data-html2canvas-ignore="true">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 max-w-7xl mx-auto px-2">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs sm:text-sm text-slate-500 max-w-7xl mx-auto px-2">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-              <span className="font-semibold text-slate-700">مطعم يحيى البيك • نظام إدارة وإغلاق الكاش اليومي</span>
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block shrink-0"></span>
+              <span className="font-bold text-slate-800 text-xs sm:text-sm">مطعم يحيى البيك • نظام إدارة وإغلاق الكاش اليومي</span>
             </div>
-            <div className="flex items-center gap-1.5 font-medium text-slate-500" dir="ltr">
+            <div className="flex items-center gap-1.5 font-medium text-slate-500 text-xs sm:text-sm" dir="ltr">
               <span>Engineered & Developed by</span>
-              <span className="font-bold text-[#1e1b4b] bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded border border-slate-300/80 transition-colors">
+              <span className="font-extrabold text-[#1e1b4b] bg-slate-100 hover:bg-slate-200 px-2.5 py-0.5 rounded border border-slate-300 transition-colors">
                 Eng. Qusai Albdour
               </span>
             </div>

@@ -591,3 +591,40 @@ input[type="number"]:focus {
   display: none !important;
 }
 
+/* Export Footer and Header Styling for Image & PDF capture */
+.export-footer {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: 100% !important;
+}
+
+.export-mode .export-footer {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  margin-top: 18px !important;
+  padding-top: 14px !important;
+  border-top: 1.5px solid #cbd5e1 !important;
+  background-color: #ffffff !important;
+}
+
+.export-mode .export-header {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+@media print {
+  .export-footer {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-top: 12px !important;
+    padding-top: 10px !important;
+    border-top: 1.5px solid #94a3b8 !important;
+  }
+}
+

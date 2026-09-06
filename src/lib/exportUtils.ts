@@ -249,9 +249,9 @@ export const exportToPdf = async (date: string) => {
 
     const totalPages = cashSlices.length + empSlices.length;
 
-    // Helper to capture a header element
-    const captureHeader = async (headerEl: HTMLElement) => {
-      const dataUrl = await toPng(headerEl, {
+    // Helper to capture a header or footer element
+    const captureBlock = async (el: HTMLElement) => {
+      const dataUrl = await toPng(el, {
         pixelRatio: 2.5,
         backgroundColor: '#ffffff',
         filter: EXPORT_FILTER,
@@ -264,6 +264,8 @@ export const exportToPdf = async (date: string) => {
 
     const cashHeaderEl = document.getElementById('export-header-cash') || cashContainer.querySelector('.export-header') as HTMLElement;
     const empHeaderEl = document.getElementById('export-header-employee') || empContainer?.querySelector('.export-header') as HTMLElement;
+    const cashFooterEl = document.getElementById('export-footer-cash') || cashContainer.querySelector('.export-footer') as HTMLElement;
+    const empFooterEl = document.getElementById('export-footer-employee') || empContainer?.querySelector('.export-footer') as HTMLElement;
 
     let currentPage = 1;
 
@@ -276,7 +278,7 @@ export const exportToPdf = async (date: string) => {
       // Draw Header
       let headerHeight = 22;
       if (cashHeaderEl) {
-        const h = await captureHeader(cashHeaderEl);
+        const h = await captureBlock(cashHeaderEl);
         headerHeight = Math.min(h.heightMm, 25);
         pdf.addImage(h.dataUrl, 'PNG', marginX, 6, contentWidthMm, headerHeight);
       }
@@ -288,6 +290,13 @@ export const exportToPdf = async (date: string) => {
       const sliceY = 6 + headerHeight + 2;
       pdf.addImage(cashSlices[i], 'PNG', marginX, sliceY, contentWidthMm, sliceHeightMm);
 
+      // Draw Footer on last cash slice or all pages
+      if (cashFooterEl && (i === cashSlices.length - 1)) {
+        const f = await captureBlock(cashFooterEl);
+        const footerY = Math.min(sliceY + sliceHeightMm + 2, pageHeightMm - f.heightMm - 4);
+        pdf.addImage(f.dataUrl, 'PNG', marginX, footerY, contentWidthMm, f.heightMm);
+      }
+
       currentPage++;
     }
 
@@ -298,7 +307,7 @@ export const exportToPdf = async (date: string) => {
       // Draw Header
       let headerHeight = 22;
       if (empHeaderEl) {
-        const h = await captureHeader(empHeaderEl);
+        const h = await captureBlock(empHeaderEl);
         headerHeight = Math.min(h.heightMm, 25);
         pdf.addImage(h.dataUrl, 'PNG', marginX, 6, contentWidthMm, headerHeight);
       }
@@ -309,6 +318,13 @@ export const exportToPdf = async (date: string) => {
       const sliceHeightMm = (sliceImg.height * contentWidthMm) / sliceImg.width;
       const sliceY = 6 + headerHeight + 2;
       pdf.addImage(empSlices[i], 'PNG', marginX, sliceY, contentWidthMm, sliceHeightMm);
+
+      // Draw Footer on last employee slice
+      if (empFooterEl && (i === empSlices.length - 1)) {
+        const f = await captureBlock(empFooterEl);
+        const footerY = Math.min(sliceY + sliceHeightMm + 2, pageHeightMm - f.heightMm - 4);
+        pdf.addImage(f.dataUrl, 'PNG', marginX, footerY, contentWidthMm, f.heightMm);
+      }
 
       currentPage++;
     }
