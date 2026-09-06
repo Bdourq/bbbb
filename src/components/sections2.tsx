@@ -201,8 +201,11 @@ export const EmployeeAdvancesSection = React.memo(() => {
                           }`}
                           placeholder="اسم الموظف"
                         />
+                        {emp.employeeName.includes('مياوم') && (
+                          <span className="text-[10px] bg-blue-100 text-blue-800 font-extrabold px-1.5 py-0.5 rounded whitespace-nowrap ml-1 shrink-0 print:hidden" title="عامل مياومة">مياومة</span>
+                        )}
                         {isOff && (
-                          <span className="text-[10px] bg-rose-600 text-white font-extrabold px-2 py-0.5 rounded shadow-xs whitespace-nowrap ml-1 animate-pulse" title="عطلة (OFF) لهذا اليوم">OFF</span>
+                          <span className="text-[10px] bg-rose-600 text-white font-extrabold px-2 py-0.5 rounded shadow-xs whitespace-nowrap ml-1 animate-pulse shrink-0" title="عطلة (OFF) لهذا اليوم">OFF</span>
                         )}
                       </div>
                     </td>

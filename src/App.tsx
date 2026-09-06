@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Menu, X, Calendar, ChevronLeft, ShieldAlert, ArrowRightLeft, HandCoins, AlertCircle, Lock, Unlock, Printer, Trash2 } from 'lucide-react';
+import { Menu, X, Calendar, ChevronLeft, ShieldAlert, ArrowRightLeft, HandCoins, AlertCircle, Lock, Unlock, Printer, Trash2, CheckCircle2 } from 'lucide-react';
 import { useShiftStore } from './store/useShiftStore';
 import { useCalculations } from './hooks/useCalculations';
 import { useValidationStore } from './store/useValidationStore';

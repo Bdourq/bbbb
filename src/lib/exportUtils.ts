@@ -36,8 +36,14 @@ export const exportToExcel = (data: ShiftData, calc: any) => {
     { 'البيان': 'مجموع الكاش المتوفر', 'القيمة': calc.totalCash },
     { 'البيان': '', 'القيمة': '' },
     { 'البيان': '--- النتيجة النهائية ---', 'القيمة': '' },
-    { 'البيان': 'نقص الكاش', 'القيمة': calc.cashShortage ? -calc.cashShortage : 0 },
-    { 'البيان': 'زيادة الكاش', 'القيمة': calc.cashSurplus },
+    { 
+      'البيان': 'نقص الكاش' + (calc.cashShortage > 0 && data.cashierName ? ` (${data.cashierName})` : ''), 
+      'القيمة': calc.cashShortage ? -calc.cashShortage : 0 
+    },
+    { 
+      'البيان': 'زيادة الكاش' + (calc.cashSurplus > 0 && data.cashierName ? ` (${data.cashierName})` : ''), 
+      'القيمة': calc.cashSurplus 
+    },
     { 'البيان': '', 'القيمة': '' },
     { 'البيان': '--- توقيع وتذييل التقرير ---', 'القيمة': '' },
     { 'البيان': 'الكاشير المسؤول', 'القيمة': data.cashierName || '-' },

@@ -7,8 +7,8 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
   const data = useShiftStore(state => state.data);
   const updateData = useShiftStore(state => state.updateData);
 
-  const [morningCashier, setMorningCashier] = useState('');
-  const [eveningCashier, setEveningCashier] = useState(data.cashierName || '');
+  const [morningCashier, setMorningCashier] = useState(data.cashierName || '');
+  const [eveningCashier, setEveningCashier] = useState('');
   
   // Required fields for Shift Handover
   const [sales, setSales] = useState(data.cashAndSales.sales || 0);
@@ -16,6 +16,19 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
   const [visa, setVisa] = useState(data.actualInventory.visa || 0);
   const [maestro, setMaestro] = useState(data.actualInventory.maestro || 0);
   const [actualCash, setActualCash] = useState(data.actualInventory.actualCash || 0);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setSales(data.cashAndSales.sales || 0);
+      setRt(data.actualInventory.rt || 0);
+      setVisa(data.actualInventory.visa || 0);
+      setMaestro(data.actualInventory.maestro || 0);
+      setActualCash(data.actualInventory.actualCash || 0);
+      if (!morningCashier) {
+        setMorningCashier(data.cashierName || '');
+      }
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -124,7 +137,7 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
               <div>
                 <label className="block text-[11px] font-bold text-gray-600 mb-1">المبيعات</label>
                 <input 
-                  type="number"
+                  type="number" inputMode="decimal" pattern="[0-9]*"
                   value={sales}
                   onChange={(e) => setSales(Number(e.target.value))}
                   onFocus={(e) => e.target.select()}
@@ -136,7 +149,7 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
               <div>
                 <label className="block text-[11px] font-bold text-gray-600 mb-1">الـ RT</label>
                 <input 
-                  type="number"
+                  type="number" inputMode="decimal" pattern="[0-9]*"
                   value={rt}
                   onChange={(e) => setRt(Number(e.target.value))}
                   onFocus={(e) => e.target.select()}
@@ -148,7 +161,7 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
               <div>
                 <label className="block text-[11px] font-bold text-gray-600 mb-1">الفيزا</label>
                 <input 
-                  type="number"
+                  type="number" inputMode="decimal" pattern="[0-9]*"
                   value={visa}
                   onChange={(e) => setVisa(Number(e.target.value))}
                   onFocus={(e) => e.target.select()}
@@ -160,7 +173,7 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
               <div>
                 <label className="block text-[11px] font-bold text-gray-600 mb-1">المايسترو</label>
                 <input 
-                  type="number"
+                  type="number" inputMode="decimal" pattern="[0-9]*"
                   value={maestro}
                   onChange={(e) => setMaestro(Number(e.target.value))}
                   onFocus={(e) => e.target.select()}
@@ -172,7 +185,8 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
               <div className="col-span-2 sm:col-span-2">
                 <label className="block text-[11px] font-bold text-indigo-700 mb-1">النقد الفعلي (المعدود باليد)</label>
                 <input 
-                  type="number"
+                  type="number" inputMode="decimal" pattern="[0-9]*"
+                  autoFocus
                   value={actualCash}
                   onChange={(e) => setActualCash(Number(e.target.value))}
                   onFocus={(e) => e.target.select()}

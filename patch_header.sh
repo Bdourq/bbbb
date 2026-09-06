@@ -1,0 +1,1 @@
+sed -i 's/<div className="flex items-center gap-4 z-10">/<div className="flex items-center gap-4 z-10 w-full justify-between md:justify-start">\n            <div className="flex items-center gap-4">\n/g' src/App.tsx

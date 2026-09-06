@@ -82,9 +82,11 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
             onChange={(e) => handleCashierChange(e.target.value)}
             className="w-full px-3 py-2.5 border-2 border-indigo-300 rounded-xl text-sm font-bold text-gray-900 bg-white outline-none focus:ring-2 focus:ring-indigo-500"
           >
-            <option value="">-- اختر اسم الكاشير النهائي --</option>
-            <option value="قصي البدور">قصي البدور</option>
-            <option value="أمجد شحادات">أمجد شحادات</option>
+            <option value="">-- اختر اسم الكاشير والشفت النهائي --</option>
+            <option value="قصي البدور (صباحي)">قصي البدور (صباحي)</option>
+            <option value="قصي البدور (مسائي)">قصي البدور (مسائي)</option>
+            <option value="أمجد شحادات (صباحي)">أمجد شحادات (صباحي)</option>
+            <option value="أمجد شحادات (مسائي)">أمجد شحادات (مسائي)</option>
           </select>
           {!selectedCashier.trim() && (
             <p className="text-[11px] font-bold text-rose-600 animate-pulse">

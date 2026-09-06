@@ -46,7 +46,7 @@ export type ShiftData = {
   equipment: LineItem[];
   ewallet: LineItem[];
   addCashReceivables: LineItem[];
-  addNewReceivables: LineItem[];
+  addNewReceivables?: LineItem[];
   cashAndSales: {
     openingCash: number;
     addedReceivablesDesc: string;
@@ -102,7 +102,8 @@ export type ShiftData = {
 const defaultEmployees = [
   "ابو حبيش", "معتصم", "ابو لطفي", "مجاهد", "سامر", "ابو الوفا", "سعيد", "هياجنة", "بدور", "قتيبة",
   "امجد شحادات", "عبيدة", "سيف", "خالد ابو عرة", "قصي", "خالد", "عز الدين", "الحمصي", "قاسم", "حسن",
-  "محمود الاشقر صالة", "محمد حريري", "ابو مصعب", "عبد الله نوفل", "علي نوفل", "محمود نابلسي", "عبد الله الحريري", "محمد طه"
+  "محمود الاشقر صالة", "زعبي / بسطه", "صالح", "علي نوفل", "عبد الله الحريري",
+  "ابو مصعب (مياومة)", "عبد الله نوفل (مياومة)", "محمود نابلسي (مياومة)", "مهيب (مياومة)", "محمد طه (مياومة)", "زعبي / صاله (مياومة)"
 ];
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
