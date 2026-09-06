@@ -16,8 +16,9 @@ import { Toaster, toast } from 'react-hot-toast';
 import { format, differenceInCalendarDays, parseISO } from 'date-fns';
 import { db } from './lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
-import { exportToImage, printDocument } from './lib/exportUtils';
+import { exportToImage, printDocument, getDayLabel } from './lib/exportUtils';
 import { cn } from './lib/utils';
+import restaurantLogo from './assets/logo.jpeg';
 
 function App() {
   const { data, isLoading, initSync, updateData, setShiftDate, fetchSavedDates, savedDates, deleteReport, closeShift, reopenShift, previousDayActualCash } = useShiftStore();
@@ -120,13 +121,13 @@ function App() {
     closeShift();
     toast.success('تم إغلاق الشفت بنجاح ✅');
     
-    const loadingToast = toast.loading('جاري تجهيز الصورة...');
+    const loadingToast = toast.loading('جاري تجهيز الصورتين (إغلاق الكاش + إغلاق جدول الموظفين)...');
     try {
-      exportToImage(data.date).then(() => {
-        toast.success('تم تصدير الصورة بنجاح', { id: loadingToast });
+      exportToImage(data.date, 'both').then(() => {
+        toast.success('تم تصدير صورة إغلاق الكاش وصورة إغلاق جدول الموظفين بنجاح ✅', { id: loadingToast });
       });
     } catch (error) {
-      toast.error('حدث خطأ أثناء تصدير الصورة', { id: loadingToast });
+      toast.error('حدث خطأ أثناء تصدير الصور', { id: loadingToast });
     }
   };
 
@@ -219,6 +220,8 @@ function App() {
     { label: 'الخميس', value: 4 },
   ];
 
+  const currentDayLabel = weekdays.find(w => w.value === new Date(data.date).getDay())?.label || getDayLabel(data.date);
+
   // Helper to adjust date when a day of week is explicitly selected
   const handleDaySelect = (targetDayIndex: number) => {
     try {
@@ -243,9 +246,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50/50 font-sans text-gray-900" dir="rtl" id="report-content">
-      <div data-html2canvas-ignore="true" className="print:hidden">
-        <Toaster position="top-center" reverseOrder={false} />
-      </div>
+      <Toaster position="top-center" reverseOrder={false} />
       
       {/* Sidebar Overlay */}
       {isSidebarOpen && (
@@ -535,54 +536,80 @@ function App() {
           </div>
 
           {/* Main Cash and Inventory Tables Container for Image Export 1 */}
-          <div id="cash-report-content" className="space-y-6">
-            {/* Export Header Banner for Main Report Image */}
-            <div className="hidden print:block export-header mb-6 text-center bg-white p-6 rounded-2xl border-2 border-indigo-600 shadow-xs">
-              <h1 className="text-2xl font-black text-indigo-950 tracking-tight">مطعم يحيى البيك - تقرير الجرد اليومي</h1>
-              <div className="flex justify-center items-center gap-6 mt-3 text-sm font-bold text-gray-700 bg-indigo-50/60 py-2 px-4 rounded-xl max-w-md mx-auto">
-                <span>اليوم: <strong className="text-indigo-900">{weekdays.find(w => w.value === new Date(data.date).getDay())?.label || ''}</strong></span>
-                <span className="text-gray-300">|</span>
-                <span>التاريخ: <strong className="text-indigo-900" dir="ltr">{data.date}</strong></span>
+          <div id="cash-report-export" className="space-y-6">
+            {/* Export Header Banner for Cash Report */}
+            <div className="hidden export-header-cash mb-6 bg-white p-5 rounded-2xl shadow-xs border-2 border-indigo-600">
+              <div className="flex items-center justify-center gap-5">
+                <div className="w-16 h-16 bg-black rounded-xl border border-slate-800 flex items-center justify-center overflow-hidden shrink-0 shadow-sm p-1">
+                  <img src={restaurantLogo} alt="شعار يحيى البيك" className="w-full h-full object-contain" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-black text-indigo-950 tracking-tight">مطعم يحيى البيك - تقرير إغلاق الكاش اليومي</h1>
+                  <div className="flex items-center justify-center sm:justify-start gap-4 mt-2 text-sm font-bold text-gray-700 bg-indigo-50/70 py-1.5 px-4 rounded-xl w-fit">
+                    <span>اليوم: <strong className="text-indigo-900">{currentDayLabel}</strong></span>
+                    <span className="text-gray-300">|</span>
+                    <span>التاريخ: <strong className="text-indigo-900" dir="ltr">{data.date}</strong></span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Top Grid: 4 columns in screen mode, 2 wide columns in Print / Image Export */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 print:grid-cols-2 print:gap-3 export-grid-2">
-            
-              {/* 1. Column 1: Main Summaries (Cash & Sales Data + Actual Inventory Summary stacked on top of each other) */}
-              <div className="space-y-4 print:space-y-3 export-space-y">
-                <CashDataSection />
-                <ActualInventorySection />
-              </div>
-
-              {/* 2. Dynamic Tables */}
-              {allDynamicListsConfigs.map((cfg) => (
-                <DynamicList
-                  key={cfg.key}
-                  listKey={cfg.key as any}
-                  title={cfg.title}
-                  total={cfg.total}
-                  suggestions={cfg.suggestions}
-                  hideLabel={cfg.hideLabel}
-                  className={cfg.className}
-                />
-              ))}
-
-              {/* 3. Kitchen & Production Sections (Grouped for Print Clarity & Pagination) */}
-              <div className="col-span-full print:break-before-page print:mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 print:grid-cols-2 print:gap-3 export-grid-2">
-                <div className="print:break-inside-avoid">
-                  <KitchenConsumptionSection />
+            <div id="cash-report-content" className="space-y-6">
+              {/* Top Grid: 4 columns in screen mode, 2 wide columns in Print / Image Export */}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 print:grid-cols-2 print:gap-3 export-grid-2">
+              
+                {/* 1. Column 1: Main Summaries (Cash & Sales Data + Actual Inventory Summary stacked on top of each other) */}
+                <div className="space-y-4 print:space-y-3 export-space-y">
+                  <CashDataSection />
+                  <ActualInventorySection />
                 </div>
-                <div className="print:break-inside-avoid">
-                  <ProductionInventorySection />
-                </div>
-              </div>
 
+                {/* 2. Dynamic Tables */}
+                {allDynamicListsConfigs.map((cfg) => (
+                  <DynamicList
+                    key={cfg.key}
+                    listKey={cfg.key as any}
+                    title={cfg.title}
+                    total={cfg.total}
+                    suggestions={cfg.suggestions}
+                    hideLabel={cfg.hideLabel}
+                    className={cfg.className}
+                  />
+                ))}
+
+                {/* 3. Kitchen & Production Sections (Grouped for Print Clarity & Pagination) */}
+                <div className="col-span-full print:break-before-page print:mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 print:grid-cols-2 print:gap-3 export-grid-2">
+                  <div className="print:break-inside-avoid">
+                    <KitchenConsumptionSection />
+                  </div>
+                  <div className="print:break-inside-avoid">
+                    <ProductionInventorySection />
+                  </div>
+                </div>
+
+              </div>
             </div>
           </div>
 
           {/* 4. Employee Attendance & Advances Section (Exported separately as Image 2) */}
-          <div className="col-span-full print:break-before-page print:mt-6">
+          <div id="employee-report-export" className="col-span-full print:break-before-page print:mt-6 mt-6">
+            {/* Export Header Banner for Employee Report with Day and Date */}
+            <div className="hidden export-header-employee mb-6 bg-white p-5 rounded-2xl shadow-xs border-2 border-indigo-600">
+              <div className="flex items-center justify-center gap-5">
+                <div className="w-16 h-16 bg-black rounded-xl border border-slate-800 flex items-center justify-center overflow-hidden shrink-0 shadow-sm p-1">
+                  <img src={restaurantLogo} alt="شعار يحيى البيك" className="w-full h-full object-contain" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-black text-indigo-950 tracking-tight">مطعم يحيى البيك - إغلاق جدول الموظفين</h1>
+                  <div className="flex items-center justify-center sm:justify-start gap-4 mt-2 text-sm font-bold text-gray-700 bg-indigo-50/70 py-1.5 px-4 rounded-xl w-fit">
+                    <span>اليوم: <strong className="text-indigo-900">{currentDayLabel}</strong></span>
+                    <span className="text-gray-300">|</span>
+                    <span>التاريخ: <strong className="text-indigo-900" dir="ltr">{data.date}</strong></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <EmployeeAdvancesSection />
           </div>
 

@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { Download, FileText, Image as ImageIcon, Lock, ShieldCheck, Printer, FileDown } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Download, FileText, Image as ImageIcon, Lock, ShieldCheck, Printer, FileDown, ChevronDown, Users, WalletCards } from 'lucide-react';
 import { useShiftStore } from '../store/useShiftStore';
 import { useCalculations } from '../hooks/useCalculations';
 import { useValidationStore } from '../store/useValidationStore';
 import { SmartValidationModal } from './SmartValidationModal';
-import { exportToExcel, printDocument, exportToImage, exportToPdf } from '../lib/exportUtils';
+import { exportToExcel, printDocument, exportToImage, exportToPdf, ExportImageTarget } from '../lib/exportUtils';
 import toast from 'react-hot-toast';
 
 export const ExportButtons = () => {
@@ -12,10 +12,23 @@ export const ExportButtons = () => {
   const calc = useCalculations();
   const closeShift = useShiftStore(state => state.closeShift);
   const [showValidationModal, setShowValidationModal] = useState(false);
+  const [showImageMenu, setShowImageMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   
   const triggerValidation = useValidationStore(state => state.triggerValidation);
   const errors = useValidationStore(state => state.errors);
   const isValidationTriggered = useValidationStore(state => state.isValidationTriggered);
+
+  // Close image options dropdown on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowImageMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
 
   const handleCloseShiftClick = () => {
     if (data.isClosed) {
@@ -40,17 +53,39 @@ export const ExportButtons = () => {
     closeShift();
     toast.success('تم إغلاق الشفت بنجاح ✅');
     
-    const loadingToast = toast.loading('جاري تجهيز التقرير...');
+    const loadingToast = toast.loading('جاري تجهيز الصورتين (إغلاق الكاش + إغلاق جدول الموظفين)...');
     try {
-      exportToImage(data.date).then(() => {
-        toast.success('تم تصدير الصورة بنجاح', { id: loadingToast });
+      exportToImage(data.date, 'both').then(() => {
+        toast.success('تم تصدير صورة إغلاق الكاش وصورة إغلاق جدول الموظفين بنجاح ✅', { id: loadingToast });
+      }).catch(() => {
+        toast.error('حدث خطأ أثناء تصدير الصور', { id: loadingToast });
       });
     } catch (error) {
       toast.error('حدث خطأ أثناء التصدير', { id: loadingToast });
     }
   };
 
-  const handleExport = (action: 'excel' | 'pdf' | 'image' | 'print') => {
+  const handleExportImages = (target: ExportImageTarget = 'both') => {
+    setShowImageMenu(false);
+    let msg = 'جاري تجهيز الصورتين (إغلاق الكاش + إغلاق جدول الموظفين)...';
+    if (target === 'cash') msg = 'جاري تجهيز صورة إغلاق الكاش...';
+    if (target === 'employees') msg = 'جاري تجهيز صورة إغلاق جدول الموظفين...';
+
+    const loadingToast = toast.loading(msg);
+    exportToImage(data.date, target).then(() => {
+      if (target === 'both') {
+        toast.success('تم تصدير صورة إغلاق الكاش وصورة إغلاق جدول الموظفين بنجاح ✅', { id: loadingToast });
+      } else if (target === 'cash') {
+        toast.success('تم تصدير صورة إغلاق الكاش بنجاح ✅', { id: loadingToast });
+      } else {
+        toast.success('تم تصدير صورة إغلاق جدول الموظفين بنجاح ✅', { id: loadingToast });
+      }
+    }).catch(() => {
+      toast.error('حدث خطأ أثناء تصدير الصورة', { id: loadingToast });
+    });
+  };
+
+  const handleExport = (action: 'excel' | 'pdf' | 'print') => {
     if (action === 'print') {
       toast.success('جاري فتح نافذة الطباعة...');
       setTimeout(() => {
@@ -71,13 +106,6 @@ export const ExportButtons = () => {
     } else if (action === 'excel') {
       exportToExcel(data, calc);
       toast.success('تم تصدير ملف Excel بنجاح');
-    } else if (action === 'image') {
-      const loadingToast = toast.loading('جاري تجهيز الصورة...');
-      exportToImage(data.date).then(() => {
-        toast.success('تم تصدير الصورة بنجاح', { id: loadingToast });
-      }).catch(() => {
-        toast.error('حدث خطأ أثناء تصدير الصورة', { id: loadingToast });
-      });
     }
   };
 
@@ -100,6 +128,7 @@ export const ExportButtons = () => {
             <span>{hasErrors ? 'فحص النواقص والأخطاء' : 'التحقق الذكي وإغلاق الشفت'}</span>
           </button>
         )}
+        
         <button
           onClick={() => handleExport('pdf')}
           className="flex items-center gap-1.5 px-3.5 py-2 bg-red-700 hover:bg-red-800 text-white rounded-xl font-bold transition-all shadow-sm text-sm cursor-pointer"
@@ -108,6 +137,7 @@ export const ExportButtons = () => {
           <FileDown size={17} className="text-white" />
           <span>تحميل PDF</span>
         </button>
+
         <button
           onClick={() => handleExport('print')}
           className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold transition-all shadow-sm text-sm cursor-pointer"
@@ -116,6 +146,7 @@ export const ExportButtons = () => {
           <Printer size={17} className="text-emerald-400" />
           <span>طباعة</span>
         </button>
+
         <button
           onClick={() => handleExport('excel')}
           className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-colors shadow-sm text-sm cursor-pointer"
@@ -123,13 +154,77 @@ export const ExportButtons = () => {
           <Download size={17} />
           <span>Excel</span>
         </button>
-        <button
-          onClick={() => handleExport('image')}
-          className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors shadow-sm text-sm cursor-pointer"
-        >
-          <ImageIcon size={17} />
-          <span>صورة</span>
-        </button>
+
+        {/* Dual Image Export Button with Split Option Dropdown */}
+        <div className="relative inline-flex rounded-xl shadow-sm" ref={menuRef}>
+          <button
+            type="button"
+            onClick={() => handleExportImages('both')}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-r-xl font-bold transition-colors text-sm cursor-pointer"
+            title="تصدير الصورتين معاً (إغلاق الكاش + إغلاق جدول الموظفين)"
+          >
+            <ImageIcon size={17} />
+            <span>صورة</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowImageMenu(prev => !prev)}
+            className="px-2 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-l-xl border-r border-blue-500 font-bold transition-colors text-sm cursor-pointer flex items-center justify-center"
+            title="خيارات تصدير الصور"
+          >
+            <ChevronDown size={15} className={`transform transition-transform ${showImageMenu ? 'rotate-180' : ''}`} />
+          </button>
+
+          {showImageMenu && (
+            <div className="absolute left-0 top-full mt-1.5 w-64 bg-white rounded-xl shadow-xl border border-gray-200 z-50 py-1 text-right animate-in fade-in zoom-in-95 duration-100">
+              <div className="px-3 py-1.5 border-b border-gray-100 text-[11px] font-extrabold text-gray-400 uppercase">
+                خيارات تصدير الصور المنفصلة
+              </div>
+              <button
+                type="button"
+                onClick={() => handleExportImages('both')}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold text-gray-800 hover:bg-blue-50 hover:text-blue-700 transition-colors text-right cursor-pointer"
+              >
+                <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                  <ImageIcon size={16} />
+                </div>
+                <div>
+                  <div className="font-extrabold">تصدير الصورتين معاً (افتراضي)</div>
+                  <div className="text-[11px] text-gray-500 font-normal">إغلاق الكاش + إغلاق جدول الموظفين</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleExportImages('cash')}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold text-gray-800 hover:bg-emerald-50 hover:text-emerald-700 transition-colors text-right cursor-pointer"
+              >
+                <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  <WalletCards size={16} />
+                </div>
+                <div>
+                  <div className="font-extrabold">صورة إغلاق الكاش فقط</div>
+                  <div className="text-[11px] text-gray-500 font-normal">جداول الكاش والجرد والمصاريف والمطبخ</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleExportImages('employees')}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold text-gray-800 hover:bg-indigo-50 hover:text-indigo-700 transition-colors text-right cursor-pointer"
+              >
+                <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                  <Users size={16} />
+                </div>
+                <div>
+                  <div className="font-extrabold">صورة إغلاق جدول الموظفين فقط</div>
+                  <div className="text-[11px] text-gray-500 font-normal">جدول حضور وسلف الموظفين باليوم والتاريخ</div>
+                </div>
+              </button>
+            </div>
+          )}
+        </div>
+
       </div>
 
       <SmartValidationModal 

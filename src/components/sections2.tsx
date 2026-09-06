@@ -117,44 +117,28 @@ export const calculateWage = (startTime: string, endTime: string, hourlyRate: nu
   return Number((hours * hourlyRate).toFixed(2));
 };
 
-export const getTimePeriod = (timeStr: string): 'م' | 'ص' | null => {
-  if (!timeStr) return null;
-  const parts = timeStr.split(':');
-  if (parts.length < 2) return null;
-  const hours = parseInt(parts[0], 10);
-  if (isNaN(hours)) return null;
-  return hours >= 12 ? 'م' : 'ص';
-};
-
-export const toggleTimePeriod = (timeStr: string): string => {
-  if (!timeStr) return timeStr;
-  const parts = timeStr.split(':');
-  if (parts.length < 2) return timeStr;
-  let hours = parseInt(parts[0], 10);
-  const minutes = parts[1];
-  if (isNaN(hours)) return timeStr;
-
-  if (hours >= 12) {
-    hours = (hours - 12) % 24;
-  } else {
-    hours = (hours + 12) % 24;
+export const formatTimeForDisplay = (timeStr?: string) => {
+  if (!timeStr || !timeStr.trim()) return '-';
+  const parts = timeStr.trim().split(':');
+  if (parts.length >= 2) {
+    const h = parseInt(parts[0], 10);
+    const m = parts[1].slice(0, 2);
+    if (!isNaN(h)) {
+      const isPM = h >= 12;
+      const period = isPM ? 'مساءً' : 'صباحاً';
+      const h12 = h % 12 === 0 ? 12 : h % 12;
+      const hStr = h12 < 10 ? `0${h12}` : `${h12}`;
+      return `${hStr}:${m} ${period}`;
+    }
   }
-
-  return `${hours.toString().padStart(2, '0')}:${minutes}`;
+  return timeStr;
 };
 
 export const EmployeeAdvancesSection = React.memo(() => {
   const data = useShiftStore(state => state.data.employeeAdvances);
-  const shiftDate = useShiftStore(state => state.data.date);
   const updateData = useShiftStore(state => state.updateData);
   const addEmployee = useShiftStore(state => state.addEmployee);
   const removeEmployee = useShiftStore(state => state.removeEmployee);
-
-  const dayOfWeekIndex = new Date(shiftDate).getDay();
-  const weekdaysMap: Record<number, string> = {
-    5: 'الجمعة', 6: 'السبت', 0: 'الأحد', 1: 'الاثنين', 2: 'الثلاثاء', 3: 'الأربعاء', 4: 'الخميس'
-  };
-  const dayLabel = weekdaysMap[dayOfWeekIndex] || '';
 
   const handleCheckIn = (index: number) => {
     const currentTime = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -171,16 +155,6 @@ export const EmployeeAdvancesSection = React.memo(() => {
 
   return (
     <Card id="employeeAdvances" data-empty={isEmpty} className="col-span-full print:col-span-2 export-col-span-2">
-      {/* Export Header Banner for Employee Section Image */}
-      <div className="hidden print:block export-header mb-4 text-center bg-white p-5 rounded-xl border-2 border-blue-600 shadow-xs m-3">
-        <h1 className="text-xl font-black text-blue-950 tracking-tight">مطعم يحيى البيك - جدول إغلاق وسلف الموظفين</h1>
-        <div className="flex justify-center items-center gap-6 mt-2 text-sm font-bold text-gray-700 bg-blue-50/60 py-1.5 px-4 rounded-lg max-w-md mx-auto">
-          <span>اليوم: <strong className="text-blue-900">{dayLabel}</strong></span>
-          <span className="text-gray-300">|</span>
-          <span>التاريخ: <strong className="text-blue-900" dir="ltr">{shiftDate}</strong></span>
-        </div>
-      </div>
-
       <CardHeader 
         title="سجل حضور وسلف الموظفين" 
         badge={activeCount > 0 ? (
@@ -201,10 +175,9 @@ export const EmployeeAdvancesSection = React.memo(() => {
               <tr>
                 <th className="px-1 py-1.5 font-extrabold text-gray-900 border border-gray-300 w-8 text-center">م</th>
                 <th className="px-2 py-1.5 font-extrabold text-gray-900 border border-gray-300 min-w-[120px] text-center">اسم الموظف</th>
-                <th className="px-1 py-1.5 font-extrabold text-gray-900 border border-gray-300 w-28 text-center">الدخول</th>
-                <th className="px-1 py-1.5 font-extrabold text-gray-900 border border-gray-300 w-28 text-center">الخروج</th>
+                <th className="px-2 py-1.5 font-extrabold text-gray-900 border border-gray-300 min-w-[150px] w-40 text-center">الدخول</th>
+                <th className="px-2 py-1.5 font-extrabold text-gray-900 border border-gray-300 min-w-[150px] w-40 text-center">الخروج</th>
                 <th className="px-1 py-1.5 font-extrabold text-gray-900 border border-gray-300 w-20 text-center">أجر/ساعة</th>
-                <th className="px-2 py-1.5 font-extrabold text-gray-900 border border-gray-300 w-24 text-center">الأجر اليومي</th>
                 <th className="px-2 py-1.5 font-extrabold text-gray-900 border border-gray-300 w-24 text-center">قيمة السلفة</th>
                 <th className="px-2 py-1.5 font-extrabold text-gray-900 border border-gray-300 min-w-[150px] text-center">ملاحظات / توقيع</th>
                 <th className="px-1 py-1 w-8 border border-gray-300 print:hidden"></th>
@@ -212,7 +185,6 @@ export const EmployeeAdvancesSection = React.memo(() => {
             </thead>
             <tbody>
               {data.map((emp, index) => {
-                const dailyWage = calculateWage(emp.startTime, emp.endTime, emp.hourlyRate);
                 const isOff = emp.employeeName.trim() && !emp.startTime && !emp.endTime;
                 const hasBoth = emp.employeeName.trim() && emp.startTime && emp.endTime;
                 const hasInOnly = emp.employeeName.trim() && emp.startTime && !emp.endTime && !isOff;
@@ -266,76 +238,46 @@ export const EmployeeAdvancesSection = React.memo(() => {
                         )}
                       </div>
                     </td>
-                    <td className="p-1 border border-gray-300">
-                      <div className="flex items-center justify-center gap-1">
+                    <td className="p-1.5 border border-gray-300 text-center">
+                      <span className="export-time-text hidden font-black text-center text-black" dir="rtl">
+                        {formatTimeForDisplay(emp.startTime)}
+                      </span>
+                      <div className="export-time-input flex items-center justify-center gap-1.5 px-1">
                         <input
                           type="time"
                           value={emp.startTime || ''}
                           onChange={(e) => updateData(['employeeAdvances', index, 'startTime'], e.target.value)}
-                          className={`bg-transparent outline-none text-center text-xs font-extrabold w-16 ${
+                          className={`bg-transparent outline-none text-center text-xs sm:text-sm font-bold w-24 sm:w-28 ${
                             isOff ? 'text-rose-400 placeholder:text-rose-300' : ''
                           }`}
                         />
-                        {emp.startTime ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newTime = toggleTimePeriod(emp.startTime);
-                              updateData(['employeeAdvances', index, 'startTime'], newTime);
-                            }}
-                            className={cn(
-                              "text-[11px] font-black px-1.5 py-0.5 rounded border transition-colors shadow-2xs shrink-0 cursor-pointer",
-                              getTimePeriod(emp.startTime) === 'م'
-                                ? "bg-purple-100 text-purple-900 border-purple-300 hover:bg-purple-200"
-                                : "bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200"
-                            )}
-                            title={`انقر للتبديل بين صباحاً ومساءً (${getTimePeriod(emp.startTime) === 'م' ? 'مساءً' : 'صباحاً'})`}
-                          >
-                            {getTimePeriod(emp.startTime) === 'م' ? 'م' : 'ص'}
-                          </button>
-                        ) : null}
                         <button
                           type="button"
                           onClick={() => handleCheckIn(index)}
-                          className="text-[10px] bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-extrabold px-1 py-0.5 rounded transition-colors print:hidden"
+                          className="text-xs font-bold bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded transition-colors print:hidden shrink-0"
                           title="تسجيل وقت الدخول الحالي"
                         >
                           دخول
                         </button>
                       </div>
                     </td>
-                    <td className="p-1 border border-gray-300">
-                      <div className="flex items-center justify-center gap-1">
+                    <td className="p-1.5 border border-gray-300 text-center">
+                      <span className="export-time-text hidden font-black text-center text-black" dir="rtl">
+                        {formatTimeForDisplay(emp.endTime)}
+                      </span>
+                      <div className="export-time-input flex items-center justify-center gap-1.5 px-1">
                         <input
                           type="time"
                           value={emp.endTime || ''}
                           onChange={(e) => updateData(['employeeAdvances', index, 'endTime'], e.target.value)}
-                          className={`bg-transparent outline-none text-center text-xs font-extrabold w-16 ${
+                          className={`bg-transparent outline-none text-center text-xs sm:text-sm font-bold w-24 sm:w-28 ${
                             isOff ? 'text-rose-400 placeholder:text-rose-300' : ''
                           }`}
                         />
-                        {emp.endTime ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newTime = toggleTimePeriod(emp.endTime);
-                              updateData(['employeeAdvances', index, 'endTime'], newTime);
-                            }}
-                            className={cn(
-                              "text-[11px] font-black px-1.5 py-0.5 rounded border transition-colors shadow-2xs shrink-0 cursor-pointer",
-                              getTimePeriod(emp.endTime) === 'م'
-                                ? "bg-purple-100 text-purple-900 border-purple-300 hover:bg-purple-200"
-                                : "bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200"
-                            )}
-                            title={`انقر للتبديل بين صباحاً ومساءً (${getTimePeriod(emp.endTime) === 'م' ? 'مساءً' : 'صباحاً'})`}
-                          >
-                            {getTimePeriod(emp.endTime) === 'م' ? 'م' : 'ص'}
-                          </button>
-                        ) : null}
                         <button
                           type="button"
                           onClick={() => handleCheckOut(index)}
-                          className="text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-800 font-extrabold px-1 py-0.5 rounded transition-colors print:hidden"
+                          className="text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded transition-colors print:hidden shrink-0"
                           title="تسجيل وقت الخروج الحالي"
                         >
                           خروج
@@ -356,11 +298,6 @@ export const EmployeeAdvancesSection = React.memo(() => {
                         dir="ltr"
                         placeholder="0"
                       />
-                    </td>
-                    <td className={`px-2 py-1.5 border border-gray-300 text-center font-bold ${
-                      isOff ? 'bg-rose-100/60 text-rose-800' : 'bg-blue-50/50 text-blue-800'
-                    }`} dir="ltr">
-                      {dailyWage.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                     </td>
                     <td className="p-0 border border-gray-300">
                       <input
@@ -399,15 +336,12 @@ export const EmployeeAdvancesSection = React.memo(() => {
                 );
               })}
               <tr className="bg-gray-100 font-bold border-t border-gray-300">
-                <td colSpan={5} className="px-3 py-2 border border-gray-300 text-center text-gray-800">إجمالي الأجور والسلف</td>
-                <td className="px-2 py-2 border border-gray-300 text-center text-blue-800" dir="ltr">
-                  {data.reduce((acc, emp) => acc + calculateWage(emp.startTime, emp.endTime, emp.hourlyRate), 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                </td>
-                <td className="px-2 py-2 border border-gray-300 text-center text-red-700" dir="ltr">
+                <td colSpan={5} className="px-3 py-2 border border-gray-300 text-center text-gray-800 font-extrabold">إجمالي السلف</td>
+                <td className="px-2 py-2 border border-gray-300 text-center text-red-700 font-black" dir="ltr">
                   {data.reduce((acc, emp) => acc + (Number(emp.amount) || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                 </td>
-                <td colSpan={1} className="border border-gray-300 hidden print:table-cell"></td>
-                <td colSpan={2} className="border border-gray-300 print:hidden"></td>
+                <td colSpan={1} className="border border-gray-300"></td>
+                <td colSpan={1} className="border border-gray-300 print:hidden"></td>
               </tr>
             </tbody>
           </table>
