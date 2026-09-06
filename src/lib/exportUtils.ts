@@ -201,7 +201,7 @@ export const exportToPdf = async (date: string) => {
 };
 
 export const exportToImage = async (date: string) => {
-  const mainElement = document.getElementById('report-content');
+  const mainElement = document.getElementById('cash-report-content');
   const employeeElement = document.getElementById('employeeAdvances');
   if (!mainElement) return;
   

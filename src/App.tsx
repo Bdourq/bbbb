@@ -532,43 +532,46 @@ function App() {
             <CustodySection />
           </div>
 
-          {/* Top Grid: 4 columns in screen mode, 2 wide columns in Print / Image Export */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 print:grid-cols-2 print:gap-3 export-grid-2">
-          
-            {/* 1. Column 1: Main Summaries (Cash & Sales Data + Actual Inventory Summary stacked on top of each other) */}
-            <div className="space-y-4 print:space-y-3 export-space-y">
-              <CashDataSection />
-              <ActualInventorySection />
-            </div>
-
-            {/* 2. Dynamic Tables */}
-            {allDynamicListsConfigs.map((cfg) => (
-              <DynamicList
-                key={cfg.key}
-                listKey={cfg.key as any}
-                title={cfg.title}
-                total={cfg.total}
-                suggestions={cfg.suggestions}
-                hideLabel={cfg.hideLabel}
-                className={cfg.className}
-              />
-            ))}
-
-            {/* 3. Kitchen & Production Sections (Grouped for Print Clarity & Pagination) */}
-            <div className="col-span-full print:break-before-page print:mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 print:grid-cols-2 print:gap-3 export-grid-2">
-              <div className="print:break-inside-avoid">
-                <KitchenConsumptionSection />
+          {/* Main Cash and Inventory Tables Container for Image Export 1 */}
+          <div id="cash-report-content" className="space-y-6">
+            {/* Top Grid: 4 columns in screen mode, 2 wide columns in Print / Image Export */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 print:grid-cols-2 print:gap-3 export-grid-2">
+            
+              {/* 1. Column 1: Main Summaries (Cash & Sales Data + Actual Inventory Summary stacked on top of each other) */}
+              <div className="space-y-4 print:space-y-3 export-space-y">
+                <CashDataSection />
+                <ActualInventorySection />
               </div>
-              <div className="print:break-inside-avoid">
-                <ProductionInventorySection />
+
+              {/* 2. Dynamic Tables */}
+              {allDynamicListsConfigs.map((cfg) => (
+                <DynamicList
+                  key={cfg.key}
+                  listKey={cfg.key as any}
+                  title={cfg.title}
+                  total={cfg.total}
+                  suggestions={cfg.suggestions}
+                  hideLabel={cfg.hideLabel}
+                  className={cfg.className}
+                />
+              ))}
+
+              {/* 3. Kitchen & Production Sections (Grouped for Print Clarity & Pagination) */}
+              <div className="col-span-full print:break-before-page print:mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 print:grid-cols-2 print:gap-3 export-grid-2">
+                <div className="print:break-inside-avoid">
+                  <KitchenConsumptionSection />
+                </div>
+                <div className="print:break-inside-avoid">
+                  <ProductionInventorySection />
+                </div>
               </div>
-            </div>
 
-            {/* 4. Employee Attendance & Advances Section */}
-            <div className="col-span-full print:break-before-page print:mt-4">
-              <EmployeeAdvancesSection />
             </div>
+          </div>
 
+          {/* 4. Employee Attendance & Advances Section (Exported separately as Image 2) */}
+          <div className="col-span-full print:break-before-page print:mt-6">
+            <EmployeeAdvancesSection />
           </div>
 
         </div>
