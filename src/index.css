@@ -202,22 +202,27 @@ input[type="number"]:focus {
   }
 }
 
-/* Export Mode for Landscape Image Capture */
+/* Export Mode for A4 Landscape Image Capture (العرضي) */
 .export-mode {
-  width: 1400px !important;
-  max-width: none !important;
-  margin: 0 !important;
-  padding: 24px !important;
+  width: 1650px !important;
+  max-width: 1650px !important;
+  margin: 0 auto !important;
+  padding: 24px 28px !important;
+  background-color: #ffffff !important;
+  box-sizing: border-box !important;
+}
+
+.export-mode .export-header {
+  display: block !important;
+  margin-bottom: 18px !important;
   background-color: #f8fafc !important;
+  border: 2px solid #334155 !important;
+  border-radius: 10px !important;
+  padding: 14px 20px !important;
 }
 
 .export-mode header {
-  flex-direction: row !important;
-  align-items: center !important;
-  border: 2px solid #334155 !important;
-  padding: 12px 20px !important;
-  border-radius: 8px !important;
-  background-color: #ffffff !important;
+  display: none !important; /* Hide interactive top header in favor of the formal export-header */
 }
 
 .export-mode .export-contents {
@@ -226,9 +231,15 @@ input[type="number"]:focus {
 
 .export-mode .export-grid-2 {
   display: grid !important;
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  gap: 12px !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 14px !important;
   width: 100% !important;
+}
+
+.export-mode .export-space-y {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
 }
 
 .export-mode .export-col-span-2 {
@@ -243,16 +254,20 @@ input[type="number"]:focus {
 .export-mode .card-container {
   border: 1.5px solid #334155 !important;
   border-radius: 8px !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+  box-shadow: none !important;
   background-color: #ffffff !important;
   overflow: hidden !important;
   width: 100% !important;
 }
 
 .export-mode .card-container > div:first-child {
-  background-color: #f1f5f9 !important;
+  padding: 7px 12px !important;
   border-bottom: 1.5px solid #334155 !important;
-  padding: 6px 12px !important;
+}
+
+.export-mode .card-container h3 {
+  font-size: 13.5px !important;
+  font-weight: 800 !important;
 }
 
 .export-mode table {
@@ -262,10 +277,12 @@ input[type="number"]:focus {
 }
 
 .export-mode th, .export-mode td {
-  border: 1px solid #64748b !important;
+  border: 1px solid #475569 !important;
   padding: 5px 8px !important;
-  font-size: 12px !important;
+  font-size: 12.5px !important;
+  line-height: 1.35 !important;
   color: #0f172a !important;
+  font-weight: 700 !important;
 }
 
 .export-mode th {
@@ -276,10 +293,15 @@ input[type="number"]:focus {
 .export-mode input, .export-mode select {
   border: none !important;
   background: transparent !important;
-  font-size: 12px !important;
-  font-weight: 700 !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
   color: #0f172a !important;
   text-align: center !important;
   box-shadow: none !important;
+}
+
+.export-mode #employeeAdvances {
+  width: 100% !important;
+  margin-top: 14px !important;
 }
 

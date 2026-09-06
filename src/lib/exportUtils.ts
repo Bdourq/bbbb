@@ -223,7 +223,7 @@ export const exportToImage = async (date: string) => {
 
     const dataUrl = await toPng(element, {
       pixelRatio: 3,
-      backgroundColor: '#f9fafb',
+      backgroundColor: '#ffffff',
       filter: filter,
       style: {
         transform: 'scale(1)',
