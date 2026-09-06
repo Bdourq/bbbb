@@ -68,10 +68,10 @@ export function calculateShiftMetrics(data: ShiftData): ShiftCalculationsResult 
   const ewalletTotal = sumLineItems(data?.ewallet);
 
   // 3. Advances total (مجموع السلف والمياومات من جدول الموظفين)
-  const advancesTotal = (data?.employeeAdvances || []).reduce((acc, emp) => {
+  const advancesTotal = ((data?.employeeAdvances || []).reduce((acc, emp) => {
     const dailyWage = calculateWage(emp.startTime, emp.endTime, emp.hourlyRate);
     return acc + dailyWage + (Number(emp.amount) || 0);
-  }, 0);
+  }, 0)) + (Number(data?.actualInventory?.manualAdvances) || 0);
 
   // 4. مجموع المصاريف بدون السلف
   const expensesWithoutAdvances =
@@ -86,11 +86,7 @@ export function calculateShiftMetrics(data: ShiftData): ShiftCalculationsResult 
     equipmentTotal;
 
   const totalExpenses = expensesWithoutAdvances + advancesTotal;
-
-  // التفريق الدقيق بين: "صفر مُدخل فعلياً" و "لم يُدخل شيء"
-  const rawAdvances = data?.actualInventory?.advances;
-  const isAdvancesEntered = rawAdvances !== undefined && rawAdvances !== null && (rawAdvances as unknown) !== '' && !isNaN(Number(rawAdvances));
-  const effectiveAdvances = isAdvancesEntered ? (Number(rawAdvances) || 0) : (advancesTotal || 0);
+  const effectiveAdvances = advancesTotal;
 
   // 5. Total Actual Inventory (مجموع الجرد الفعلي)
   const actualCounted =

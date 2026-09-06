@@ -558,10 +558,10 @@ export const ActualInventorySection = React.memo(() => {
     { key: 'rt', label: 'Rt', targetId: 'cashData' },
     { key: 'maestro', label: 'مايسترو', targetId: 'cashData' },
     { key: 'priceDifference', label: 'فرق سعر', targetId: 'cashData' },
-    { key: 'advances', label: 'سلف', targetId: 'employeeAdvances' },
   ];
 
   const displayFields = [
+    { label: 'سلف الموظفين', value: calc.advancesTotal, targetId: 'employeeAdvances', manualKey: 'manualAdvances' },
     { label: 'مشتريات', value: calc.purchasesTotal, targetId: 'purchases', manualKey: 'manualPurchases' },
     { label: 'سداد ذمم تجار', value: calc.payMerchantTotal, targetId: 'payMerchantReceivables', manualKey: 'manualPayMerchant' },
     { label: 'مصاريف أخرى', value: calc.otherExpensesTotal, targetId: 'otherExpenses', manualKey: 'manualOtherExpenses' },

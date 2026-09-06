@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import { ShiftData } from '../store/useShiftStore';
 import { getDayLabel } from './exportUtils';
+import { calculateWage } from '../components/sections2';
 
 export const TEMPLATE_PATH = '/templates/closing-report-template.xlsx';
 
@@ -630,15 +631,20 @@ export async function populateClosingReport(
     cellA.value = i + 1;
     if (emp) {
       const advAmount = Number(emp.amount) || 0;
-      totalAdvancesSum += advAmount;
+      const dailyWage = calculateWage(emp.startTime, emp.endTime, emp.hourlyRate);
+      const totalEmpAmount = advAmount + dailyWage;
+      totalAdvancesSum += totalEmpAmount;
 
       cellB.value = emp.employeeName || '-';
-      cellF.value = advAmount > 0 ? advAmount : '-';
+      cellF.value = totalEmpAmount > 0 ? totalEmpAmount : '-';
 
       const isOff = emp.employeeName?.trim() && !emp.startTime && !emp.endTime;
       let notes = emp.notes?.trim() || '';
       if (isOff) {
         notes = notes ? `${notes} (عطلة)` : 'عطلة (OFF)';
+      } else if (dailyWage > 0) {
+        const wageNote = `مياومة: ${dailyWage.toFixed(2)} د.أ`;
+        notes = notes ? `${notes} | ${wageNote}` : wageNote;
       }
       cellI.value = notes || '-';
     } else {
@@ -670,17 +676,22 @@ export async function populateClosingReport(
 
       const emp = employees[i];
       const advAmount = Number(emp.amount) || 0;
-      totalAdvancesSum += advAmount;
+      const dailyWage = calculateWage(emp.startTime, emp.endTime, emp.hourlyRate);
+      const totalEmpAmount = advAmount + dailyWage;
+      totalAdvancesSum += totalEmpAmount;
 
       const isOff = emp.employeeName?.trim() && !emp.startTime && !emp.endTime;
       let notes = emp.notes?.trim() || '';
       if (isOff) {
         notes = notes ? `${notes} (عطلة)` : 'عطلة (OFF)';
+      } else if (dailyWage > 0) {
+        const wageNote = `مياومة: ${dailyWage.toFixed(2)} د.أ`;
+        notes = notes ? `${notes} | ${wageNote}` : wageNote;
       }
 
       newRow.getCell(1).value = i + 1;
       newRow.getCell(2).value = emp.employeeName || '-';
-      newRow.getCell(6).value = advAmount > 0 ? advAmount : '-';
+      newRow.getCell(6).value = totalEmpAmount > 0 ? totalEmpAmount : '-';
       newRow.getCell(9).value = notes || '-';
 
       for (let c = 1; c <= 11; c++) {

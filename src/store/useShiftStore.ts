@@ -92,6 +92,7 @@ export type ShiftData = {
     maestro: number;
     priceDifference: number;
     advances?: number | null;
+    manualAdvances?: number;
     wallet: number;
     manualPurchases?: number;
     manualPayMerchant?: number;
