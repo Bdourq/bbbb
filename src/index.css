@@ -591,12 +591,9 @@ input[type="number"]:focus {
   display: none !important;
 }
 
-/* Export Footer and Header Styling for Image & PDF capture */
+/* Export Footer and Header Styling for Image, PDF, and Print capture */
 .export-footer {
-  display: flex !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  width: 100% !important;
+  width: 100%;
 }
 
 .export-mode .export-footer {
