@@ -9,6 +9,7 @@ import { cn } from '../lib/utils';
 export const CashDataSection = React.memo(() => {
   const cashAndSales = useShiftStore(state => state.data.cashAndSales);
   const addCashReceivables = useShiftStore(state => state.data.addCashReceivables) || [];
+  const addNewReceivables = useShiftStore(state => state.data.addNewReceivables) || [];
   const updateData = useShiftStore(state => state.updateData);
   const addLineItem = useShiftStore(state => state.addLineItem);
   const removeLineItem = useShiftStore(state => state.removeLineItem);
@@ -29,7 +30,7 @@ export const CashDataSection = React.memo(() => {
     !cashAndSales.openingCash && 
     !cashAndSales.sales && 
     !cashAndSales.otherSales && 
-    !cashAndSales.paidOldReceivables && 
+    (!addNewReceivables.length || addNewReceivables.every(i => !i.label && !i.amount)) && 
     (!addCashReceivables.length || addCashReceivables.every(i => !i.label && !i.amount));
 
   return (
@@ -108,6 +109,14 @@ export const CashDataSection = React.memo(() => {
                         type="text" 
                         value={item.label || ''} 
                         onFocus={(e) => e.target.select()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const row = (e.target as HTMLElement).closest('tr');
+                            const amountInput = row?.querySelector('input[type="number"]') as HTMLInputElement;
+                            amountInput?.focus();
+                          }
+                        }}
                         onChange={(e) => {
                           updateData(['addCashReceivables', index, 'label'], e.target.value);
                           if (index === addCashReceivables.length - 1 && e.target.value) {
@@ -127,6 +136,26 @@ export const CashDataSection = React.memo(() => {
                       value={item.amount || ''}
                       onFocus={(e) => e.target.select()}
                       onWheel={(e) => e.currentTarget.blur()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === 'Tab') {
+                          e.preventDefault();
+                          if (index === addCashReceivables.length - 1) {
+                            if (!item.label && !item.amount) return;
+                            addLineItem('addCashReceivables');
+                            setTimeout(() => {
+                              const row = (e.target as HTMLElement).closest('tr');
+                              const nextRow = row?.nextElementSibling;
+                              const nextLabelInput = nextRow?.querySelector('input[type="text"]') as HTMLInputElement;
+                              nextLabelInput?.focus();
+                            }, 10);
+                          } else {
+                            const row = (e.target as HTMLElement).closest('tr');
+                            const nextRow = row?.nextElementSibling;
+                            const nextLabelInput = nextRow?.querySelector('input[type="text"]') as HTMLInputElement;
+                            nextLabelInput?.focus();
+                          }
+                        }
+                      }}
                       onChange={(e) => {
                         updateData(['addCashReceivables', index, 'amount'], Number(e.target.value));
                         if (index === addCashReceivables.length - 1 && Number(e.target.value) > 0) {
@@ -140,36 +169,97 @@ export const CashDataSection = React.memo(() => {
                 </tr>
               );
             })}
-            <tr className="border-b border-gray-300">
-              <td className="p-0 bg-gray-50 border border-gray-300 w-1/2">
-                <div className="flex flex-col sm:flex-row h-full relative">
-                  <div className="relative flex items-center justify-center min-w-[80px] bg-gray-50 px-2 py-1.5 border-b sm:border-b-0 sm:border-r-0 border-gray-300">
-                    <span className="font-bold text-gray-700 whitespace-nowrap text-xs">إضافة ذمم جديدة</span>
-                  </div>
-                  <input 
-                    type="text" 
-                    value={cashAndSales.paidOldReceivablesDesc || ''} 
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => updateData(['cashAndSales', 'paidOldReceivablesDesc'], e.target.value)} 
-                    className="w-full px-2 py-1 bg-white outline-none border-t sm:border-t-0 sm:border-r border-gray-300 text-xs text-center focus:bg-amber-50 focus:font-bold" 
-                    placeholder="البيان..." 
-                  />
-                </div>
-              </td>
-              <td className="p-0 border border-gray-300">
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  pattern="[0-9]*"
-                  value={cashAndSales.paidOldReceivables || ''}
-                  onFocus={(e) => e.target.select()}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  onChange={(e) => handleInputChange(['cashAndSales', 'paidOldReceivables'], Number(e.target.value))}
-                  className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg focus:text-indigo-900 transition-all duration-150"
-                  dir="ltr" placeholder="0"
-                />
-              </td>
-            </tr>
+            {useShiftStore(state => state.data.addNewReceivables || []).map((item, index, arr) => {
+              const isItemEmpty = !item.label && !item.amount;
+              return (
+                <tr key={item.id} className={cn("border-b border-gray-300 relative group", isItemEmpty && "print:hidden export-empty-row")}>
+                  <td className="p-0 bg-gray-50 border border-gray-300 w-1/2">
+                    <div className="flex flex-col sm:flex-row h-full relative">
+                      <div className="relative flex items-center justify-center min-w-[80px] bg-gray-50 px-2 py-1.5 border-b sm:border-b-0 sm:border-r-0 border-gray-300">
+                        {index === 0 && (
+                          <button 
+                            onClick={() => addLineItem('addNewReceivables')}
+                            className="absolute top-1 right-1 text-emerald-600 hover:bg-emerald-100 rounded print:hidden cursor-pointer"
+                            title="إضافة بند جديد"
+                          >
+                            <Plus size={14} />
+                          </button>
+                        )}
+                        {index > 0 && (
+                          <button 
+                            onClick={() => removeLineItem('addNewReceivables', item.id)}
+                            className="absolute top-1 right-1 text-red-600 hover:bg-red-100 rounded print:hidden cursor-pointer"
+                            title="حذف"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                        <span className="font-bold text-gray-700 whitespace-nowrap text-xs">إضافة ذمم جديدة</span>
+                      </div>
+                      <input 
+                        type="text" 
+                        value={item.label || ''} 
+                        onFocus={(e) => e.target.select()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const row = (e.target as HTMLElement).closest('tr');
+                            const amountInput = row?.querySelector('input[type="number"]') as HTMLInputElement;
+                            amountInput?.focus();
+                          }
+                        }}
+                        onChange={(e) => {
+                          updateData(['addNewReceivables', index, 'label'], e.target.value);
+                          if (index === arr.length - 1 && e.target.value) {
+                            addLineItem('addNewReceivables');
+                          }
+                        }} 
+                        className="w-full px-2 py-1 bg-white outline-none border-t sm:border-t-0 sm:border-r border-gray-300 text-xs text-center focus:bg-amber-50 focus:font-bold" 
+                        placeholder="البيان..." 
+                      />
+                    </div>
+                  </td>
+                  <td className="p-0 border border-gray-300">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      pattern="[0-9]*"
+                      value={item.amount || ''}
+                      onFocus={(e) => e.target.select()}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === 'Tab') {
+                          e.preventDefault();
+                          if (index === arr.length - 1) {
+                            if (!item.label && !item.amount) return;
+                            addLineItem('addNewReceivables');
+                            setTimeout(() => {
+                              const row = (e.target as HTMLElement).closest('tr');
+                              const nextRow = row?.nextElementSibling;
+                              const nextLabelInput = nextRow?.querySelector('input[type="text"]') as HTMLInputElement;
+                              nextLabelInput?.focus();
+                            }, 10);
+                          } else {
+                            const row = (e.target as HTMLElement).closest('tr');
+                            const nextRow = row?.nextElementSibling;
+                            const nextLabelInput = nextRow?.querySelector('input[type="text"]') as HTMLInputElement;
+                            nextLabelInput?.focus();
+                          }
+                        }
+                      }}
+                      onChange={(e) => {
+                        updateData(['addNewReceivables', index, 'amount'], Number(e.target.value));
+                        if (index === arr.length - 1 && Number(e.target.value) > 0) {
+                          addLineItem('addNewReceivables');
+                        }
+                      }}
+                      className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg focus:text-indigo-900 transition-all duration-150"
+                      dir="ltr" placeholder="0"
+                    />
+                  </td>
+                </tr>
+              );
+            })}
             <tr className="border-b border-gray-300">
               <td className="px-2 py-1.5 bg-gray-50 border border-gray-300 font-bold text-gray-700 w-1/2 text-center">مبيعات</td>
               <td className="p-0 border border-gray-300">
@@ -329,19 +419,34 @@ export const ActualInventorySection = React.memo(() => {
               // Calculate table sum: totalValue - manualValue
               const manualValue = Number(data[field.manualKey as keyof typeof data]) || 0;
               const tableSum = field.value - manualValue;
+              const hasMismatch = manualValue !== 0;
+
               return (
                 <tr 
                   key={idx}
-                  className="border-b border-gray-300 hover:bg-indigo-50/80 transition-colors group relative"
+                  className={cn(
+                    "border-b border-gray-300 hover:bg-indigo-50/80 transition-colors group relative",
+                    hasMismatch && "bg-rose-50 hover:bg-rose-100"
+                  )}
                 >
                   <td 
                     onClick={() => scrollToTable(field.targetId)}
-                    className="px-2 py-1.5 bg-gray-50 group-hover:bg-indigo-100/60 border border-gray-300 font-bold text-gray-700 text-center cursor-pointer"
+                    className={cn(
+                      "px-2 py-1.5 bg-gray-50 group-hover:bg-indigo-100/60 border border-gray-300 font-bold text-gray-700 text-center cursor-pointer",
+                      hasMismatch && "bg-rose-50 group-hover:bg-rose-100 text-rose-700"
+                    )}
                     title={`انقر للانتقال لمعاينة بيانات جدول ${field.label}`}
                   >
-                    <div className="flex items-center justify-center gap-1">
-                      <span>{field.label}</span>
-                      <ExternalLink size={11} className="text-indigo-500 opacity-40 group-hover:opacity-100 print:hidden shrink-0" />
+                    <div className="flex flex-col items-center justify-center gap-1">
+                      <div className="flex items-center gap-1">
+                        <span>{field.label}</span>
+                        <ExternalLink size={11} className={cn("opacity-40 group-hover:opacity-100 print:hidden shrink-0", hasMismatch ? "text-rose-500" : "text-indigo-500")} />
+                      </div>
+                      {hasMismatch && (
+                        <span className="text-[9px] text-rose-600 font-black print:hidden">
+                          (يوجد فرق)
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="p-0 border border-gray-300 relative group">
@@ -357,14 +462,25 @@ export const ActualInventorySection = React.memo(() => {
                         const newManual = newTotal - tableSum;
                         handleInputChange(field.manualKey, newManual);
                       }}
-                      className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center font-black text-indigo-900 focus:bg-amber-50/80 focus:text-base sm:focus:text-lg transition-all duration-150"
+                      className={cn(
+                        "w-full h-full px-2 py-1.5 bg-transparent outline-none text-center font-black transition-all duration-150",
+                        hasMismatch ? "text-rose-700 focus:bg-rose-100" : "text-indigo-900 focus:bg-amber-50/80",
+                        "focus:text-base sm:focus:text-lg"
+                      )}
                       dir="ltr"
                       placeholder="0"
                     />
-                    {tableSum > 0 && (
-                      <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[9px] text-indigo-400 font-bold pointer-events-none print:hidden opacity-0 group-hover:opacity-100 transition-opacity">
-                        جدول: {tableSum}
-                      </span>
+                    {hasMismatch ? (
+                      <div className="absolute left-1 top-1/2 -translate-y-1/2 flex flex-col items-start pointer-events-none print:hidden">
+                        <span className="text-[9px] text-rose-500 font-bold leading-tight">الجدول: {tableSum}</span>
+                        <span className="text-[9px] text-rose-600 font-black leading-tight">الفرق: {manualValue > 0 ? `+${manualValue}` : manualValue}</span>
+                      </div>
+                    ) : (
+                      tableSum > 0 && (
+                        <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[9px] text-indigo-400 font-bold pointer-events-none print:hidden opacity-0 group-hover:opacity-100 transition-opacity">
+                          جدول: {tableSum}
+                        </span>
+                      )
                     )}
                   </td>
                 </tr>

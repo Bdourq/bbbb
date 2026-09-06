@@ -46,6 +46,7 @@ export type ShiftData = {
   equipment: LineItem[];
   ewallet: LineItem[];
   addCashReceivables: LineItem[];
+  addNewReceivables: LineItem[];
   cashAndSales: {
     openingCash: number;
     addedReceivablesDesc: string;
@@ -106,8 +107,8 @@ const defaultEmployees = [
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
-const START_DATE = '2026-09-04';
-const DEFAULT_OPENING_CASH = 40.25;
+const START_DATE = '2026-09-05';
+const DEFAULT_OPENING_CASH = 22;
 const TODAY_DATE = format(new Date(), 'yyyy-MM-dd');
 
 const defaultState: ShiftData = {
@@ -126,7 +127,8 @@ const defaultState: ShiftData = {
   spices: [],
   equipment: [],
   ewallet: [],
-  addCashReceivables: [],
+  addCashReceivables: [{ id: 'ncr-1', label: '', amount: 0 }],
+  addNewReceivables: [{ id: 'nr-1', label: '', amount: 0 }],
   cashAndSales: {
     openingCash: DEFAULT_OPENING_CASH,
     addedReceivablesDesc: '',
@@ -496,11 +498,18 @@ export const useShiftStore = create<StoreState>((set, get) => ({
 
   syncFromRemote: (remoteData: ShiftData) => {
     // Migration for older documents
-    if (!remoteData.addCashReceivables) {
+    if (!remoteData.addCashReceivables || remoteData.addCashReceivables.length === 0) {
       remoteData.addCashReceivables = [{
         id: generateId(),
         label: remoteData.cashAndSales?.addedReceivablesDesc || '',
         amount: remoteData.cashAndSales?.addedReceivables || 0
+      }];
+    }
+    if (!remoteData.addNewReceivables || remoteData.addNewReceivables.length === 0) {
+      remoteData.addNewReceivables = [{
+        id: generateId(),
+        label: remoteData.cashAndSales?.paidOldReceivablesDesc || '',
+        amount: remoteData.cashAndSales?.paidOldReceivables || 0
       }];
     }
     if (!remoteData.custodyItems) {

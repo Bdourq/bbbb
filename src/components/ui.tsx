@@ -233,6 +233,14 @@ export const DynamicList = ({
                           list={suggestions ? listId : undefined}
                           value={item.label}
                           onFocus={(e) => e.target.select()}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const row = (e.target as HTMLElement).closest('tr');
+                              const amountInput = row?.querySelector('input[type="number"]') as HTMLInputElement;
+                              amountInput?.focus();
+                            }
+                          }}
                           onChange={(e) => {
                             updateData([listKey, index, 'label'], e.target.value);
                             if (e.target.value.trim() && errorMessage) {
@@ -263,6 +271,26 @@ export const DynamicList = ({
                         value={item.amount || ''}
                         onFocus={(e) => e.target.select()}
                         onWheel={(e) => e.currentTarget.blur()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === 'Tab') {
+                            e.preventDefault();
+                            if (index === items.length - 1) {
+                              if (!item.label.trim() && !item.amount) return;
+                              addLineItem(listKey);
+                              setTimeout(() => {
+                                const row = (e.target as HTMLElement).closest('tr');
+                                const nextRow = row?.nextElementSibling;
+                                const nextLabelInput = nextRow?.querySelector('input[type="text"], input[type="number"]') as HTMLInputElement;
+                                nextLabelInput?.focus();
+                              }, 10);
+                            } else {
+                              const row = (e.target as HTMLElement).closest('tr');
+                              const nextRow = row?.nextElementSibling;
+                              const nextLabelInput = nextRow?.querySelector('input[type="text"], input[type="number"]') as HTMLInputElement;
+                              nextLabelInput?.focus();
+                            }
+                          }
+                        }}
                         onChange={(e) => {
                           updateData([listKey, index, 'amount'], Number(e.target.value));
                           if (index === items.length - 1 && Number(e.target.value) > 0) {

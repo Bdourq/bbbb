@@ -131,23 +131,24 @@ function App() {
   };
 
   const baseMerchantSuggestions = [
-    "خس", "خبز الشيخ", "خبز بروستد", "نوافله", "خضار", "ابو جليل", "منظفات"
+    "شعبان", "رفاعي", "حبيبه", "نوافله", "ابو جليل", "العناني", "ابو المجد", "عصاصفه",
+    "ملفوف", "خضار", "ثلج", "بطاطا", "ثوم", "فحم", "منظفات", "خس", "خبز الشيخ", "خبز بروستد"
   ];
   
   const ohdaSuggestions = [
-    "عهده سيف", "عهده الزعبي", "عهده سعد", "عهده النابلسي"
+    "عهده سيف", "عهده الزعبي", "عهده سعد", "عهده نابلسي", "عهده يحيى"
   ];
   
   const purchasesSuggestions = [...baseMerchantSuggestions, ...ohdaSuggestions];
   const personalSuggestions = ["اوردر", "اغراض"];
   const adminSuggestions = ["ضمان", "كهرباء", "فاتورة نت", "فاتورة اتصال", "ضيافة", "رعاية", "قرطاسية"];
   const spiceSuggestions = ["بهارات شاورما", "كبا", "مشكل", "جنات", "قشرة", "شطة زبدة", "مدخن ملونين", "بطاطا", "صبغة حا", "صبغة رز"];
+  const otherExpensesSuggestions = [...ohdaSuggestions];
 
-  // Dynamic sorting algorithm: Sort active tables by total amount descending, active tables first
   const allDynamicListsConfigs = [
     { key: 'purchases', title: 'مشتريات', total: calc.purchasesTotal, suggestions: purchasesSuggestions },
     { key: 'payMerchantReceivables', title: 'سداد ذمم تجار', total: calc.payMerchantTotal, suggestions: baseMerchantSuggestions },
-    { key: 'otherExpenses', title: 'مصاريف أخرى', total: calc.otherExpensesTotal },
+    { key: 'otherExpenses', title: 'مصاريف أخرى', total: calc.otherExpensesTotal, suggestions: otherExpensesSuggestions },
     { key: 'apartment', title: 'الشقة', total: calc.apartmentTotal, suggestions: personalSuggestions },
     { key: 'adminExpenses', title: 'مصاريف إدارية', total: calc.adminExpensesTotal, suggestions: adminSuggestions },
     { key: 'abuAbdullah', title: 'أبو عبدالله', total: calc.abuAbdullahTotal },
@@ -157,24 +158,6 @@ function App() {
     { key: 'yahya', title: 'يحيى', total: calc.yahyaTotal, suggestions: personalSuggestions },
     { key: 'spices', title: 'بهارات', total: calc.spicesTotal, suggestions: spiceSuggestions },
   ];
-
-  const checkHasContent = (key: string, total: number) => {
-    if (total > 0) return true;
-    const items = (data as any)[key];
-    if (Array.isArray(items)) {
-      return items.some((item: any) => Boolean(item?.label?.trim()) || Boolean(item?.amount));
-    }
-    return false;
-  };
-
-  const activeLists = allDynamicListsConfigs
-    .filter(cfg => checkHasContent(cfg.key, cfg.total))
-    .sort((a, b) => b.total - a.total);
-
-  const emptyLists = allDynamicListsConfigs
-    .filter(cfg => !checkHasContent(cfg.key, cfg.total));
-
-  const orderedDynamicLists = [...activeLists, ...emptyLists];
 
   const weekdays = [
     { label: 'الجمعة', value: 5 },
@@ -508,8 +491,8 @@ function App() {
               <ActualInventorySection />
             </div>
 
-            {/* 2. Dynamic Tables: Active tables containing data are dynamically sorted first by total amount */}
-            {orderedDynamicLists.map((cfg) => (
+            {/* 2. Dynamic Tables */}
+            {allDynamicListsConfigs.map((cfg) => (
               <DynamicList
                 key={cfg.key}
                 listKey={cfg.key as any}

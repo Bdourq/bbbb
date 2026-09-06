@@ -11,10 +11,14 @@ export const useCalculations = () => {
     ? sumLineItems(data.addCashReceivables)
     : (Number(data.cashAndSales.addedReceivables) || 0);
 
+  const newReceivablesTotal = data.addNewReceivables
+    ? sumLineItems(data.addNewReceivables)
+    : (Number(data.cashAndSales.paidOldReceivables) || 0);
+
   const totalCash = 
     (Number(data.cashAndSales.openingCash) || 0) +
     addedReceivablesTotal +
-    (Number(data.cashAndSales.paidOldReceivables) || 0) +
+    newReceivablesTotal +
     (Number(data.cashAndSales.sales) || 0) +
     (Number(data.cashAndSales.otherSales) || 0);
 
