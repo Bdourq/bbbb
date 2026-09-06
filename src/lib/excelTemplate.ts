@@ -16,7 +16,9 @@ const THIN_BORDER: Partial<ExcelJS.Borders> = {
  */
 export async function createBaseClosingReportWorkbook(): Promise<ExcelJS.Workbook> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'مطعم يحيى البيك';
+  wb.creator = 'Eng. Qusai Albdour';
+  wb.lastModifiedBy = 'Eng. Qusai Albdour';
+  wb.company = 'مطعم يحيى البيك - إعداد وتطوير: Eng. Qusai Albdour';
   wb.created = new Date();
 
   const ws = wb.addWorksheet('تقرير الإغلاق', {
@@ -447,6 +449,9 @@ export async function populateClosingReport(
 ): Promise<{ workbook: ExcelJS.Workbook; buffer: ArrayBuffer }> {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(templateBuffer);
+  wb.creator = 'Eng. Qusai Albdour';
+  wb.lastModifiedBy = 'Eng. Qusai Albdour';
+  wb.company = 'مطعم يحيى البيك - إعداد وتطوير: Eng. Qusai Albdour';
 
   const ws = wb.getWorksheet('تقرير الإغلاق') || wb.worksheets[0];
   if (!ws) {
@@ -456,6 +461,9 @@ export async function populateClosingReport(
   // Guarantee single worksheet, correct name, and RTL direction
   ws.name = 'تقرير الإغلاق';
   ws.views = [{ rightToLeft: true }];
+  if (ws.headerFooter) {
+    ws.headerFooter.oddFooter = "&Rمطعم يحيى البيك - تقرير إغلاق الكاش &Cإعداد وتطوير: Eng. Qusai Albdour &Lصفحة &P من &N";
+  }
 
   // 1. Date & Day (J3:K3)
   const dayLabel = getDayLabel(data.date);

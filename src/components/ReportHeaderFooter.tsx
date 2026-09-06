@@ -56,14 +56,31 @@ export const ExportHeader: React.FC<ExportHeaderProps> = ({
 };
 
 interface ExportFooterProps {
-  date: string;
-  cashierName?: string;
-  issueTimestamp?: string;
-  pageNumber?: string;
+  date?: string;
   className?: string;
   id?: string;
 }
 
-export const ExportFooter: React.FC<ExportFooterProps> = () => {
-  return null;
+export const ExportFooter: React.FC<ExportFooterProps> = ({
+  className = '',
+  id,
+}) => {
+  return (
+    <div
+      id={id}
+      className={`export-footer mt-4 pt-2.5 border-t border-slate-200/90 flex flex-wrap items-center justify-between text-[11px] sm:text-xs text-slate-500 font-tajawal ${className}`}
+      dir="rtl"
+    >
+      <div className="flex items-center gap-2">
+        <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 inline-block"></span>
+        <span className="font-semibold text-slate-700">نظام إدارة وإغلاق الكاش اليومي • مطعم يحيى البيك</span>
+      </div>
+      <div className="flex items-center gap-1.5 font-medium text-slate-500 mt-1 sm:mt-0" dir="ltr">
+        <span>Engineered & Developed by</span>
+        <span className="font-bold text-[#1e1b4b] bg-slate-100 px-2 py-0.5 rounded border border-slate-200/80">
+          Eng. Qusai Albdour
+        </span>
+      </div>
+    </div>
+  );
 };

@@ -19,7 +19,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { exportToImage, printDocument, getDayLabel } from './lib/exportUtils';
 import { cn } from './lib/utils';
 import restaurantLogo from './assets/logo.jpeg';
-import { ExportHeader } from './components/ReportHeaderFooter';
+import { ExportHeader, ExportFooter } from './components/ReportHeaderFooter';
 
 function App() {
   const { 
@@ -359,6 +359,14 @@ function App() {
             </div>
           )}
         </div>
+
+        {/* Sidebar Engineer Signature */}
+        <div className="p-3 border-t border-slate-200 bg-slate-50/70 text-[11px] text-slate-500 flex items-center justify-between" dir="ltr">
+          <span className="text-slate-400 font-medium">Engineered by</span>
+          <span className="font-bold text-[#1e1b4b] bg-white px-1.5 py-0.5 rounded border border-slate-200">
+            Eng. Qusai Albdour
+          </span>
+        </div>
       </div>
 
       <CashierDeficitModal isOpen={showDeficitModal} onClose={() => setShowDeficitModal(false)} />
@@ -586,6 +594,9 @@ function App() {
 
               </div>
             </div>
+
+            {/* Export Footer for Cash Report (Appears in Print, Image, and PDF exports) */}
+            <ExportFooter date={data.date} className="hidden print:flex export-mode:flex" />
           </div>
 
           {/* 4. Employee Attendance & Advances Section (Exported separately as Image 2) */}
@@ -600,9 +611,28 @@ function App() {
             />
 
             <EmployeeAdvancesSection />
+
+            {/* Export Footer for Employee Report */}
+            <ExportFooter date={data.date} className="hidden print:flex export-mode:flex" />
           </div>
 
         </div>
+
+        {/* Professional Website Footer */}
+        <footer className="mt-12 pt-6 pb-4 border-t border-slate-200/80 text-center print:hidden" data-html2canvas-ignore="true">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 max-w-7xl mx-auto px-2">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+              <span className="font-semibold text-slate-700">مطعم يحيى البيك • نظام إدارة وإغلاق الكاش اليومي</span>
+            </div>
+            <div className="flex items-center gap-1.5 font-medium text-slate-500" dir="ltr">
+              <span>Engineered & Developed by</span>
+              <span className="font-bold text-[#1e1b4b] bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded border border-slate-300/80 transition-colors">
+                Eng. Qusai Albdour
+              </span>
+            </div>
+          </div>
+        </footer>
 
       </div>
     </div>
