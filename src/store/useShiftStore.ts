@@ -131,7 +131,7 @@ const defaultState: ShiftData = {
   addCashReceivables: [{ id: 'ncr-1', label: '', amount: 0 }],
   addNewReceivables: [{ id: 'nr-1', label: '', amount: 0 }],
   cashAndSales: {
-    openingCash: DEFAULT_OPENING_CASH,
+    openingCash: 0,
     addedReceivablesDesc: '',
     addedReceivables: 0,
     paidOldReceivablesDesc: '',
@@ -552,13 +552,19 @@ export const useShiftStore = create<StoreState>((set, get) => ({
         }
         get().syncFromRemote(remoteData);
       } else {
-        // Doc doesn't exist, create it with previous day cash or default opening cash
+        // Doc doesn't exist, create it clean with zeroed tables and previous day cash
         const prevCash = await get().fetchPreviousDayCash(date);
         const initialCash = prevCash > 0 ? prevCash : (date === START_DATE ? DEFAULT_OPENING_CASH : 0);
-        const currentData = { ...get().data };
-        if (initialCash > 0 && (!currentData.cashAndSales?.openingCash || currentData.cashAndSales.openingCash === 0)) {
-          currentData.cashAndSales = { ...currentData.cashAndSales, openingCash: initialCash };
-        }
+        const currentData: ShiftData = {
+          ...defaultState,
+          date,
+          addCashReceivables: [{ id: generateId(), label: '', amount: 0 }],
+          addNewReceivables: [{ id: generateId(), label: '', amount: 0 }],
+          cashAndSales: {
+            ...defaultState.cashAndSales,
+            openingCash: initialCash
+          }
+        };
         setDoc(shiftDoc, currentData);
         set({ data: currentData, isLoading: false });
       }
