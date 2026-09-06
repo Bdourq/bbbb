@@ -198,7 +198,7 @@ export const CashierDeficitModal = ({ isOpen, onClose }: { isOpen: boolean; onCl
                           ? 'bg-blue-50 border-blue-300 text-blue-800' 
                           : 'bg-red-100 border-red-300 text-red-900'
                       }`}>
-                        الصافي: {netBalance > 0 ? `+${netBalance.toLocaleString()}` : netBalance.toLocaleString()}
+                        الصافي: {netBalance > 0 ? `+${netBalance.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : netBalance.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                   </div>
@@ -220,7 +220,7 @@ export const CashierDeficitModal = ({ isOpen, onClose }: { isOpen: boolean; onCl
                           {d.type === 'shortage' && <TrendingDown size={12} />}
                           {d.type === 'surplus' && <TrendingUp size={12} />}
                           {d.type === 'exact' && <CheckCircle2 size={12} />}
-                          <span>{d.date}: {d.type === 'shortage' ? `عجز ${d.amount.toLocaleString()}` : d.type === 'surplus' ? `زيادة ${d.amount.toLocaleString()}` : 'مطابق'}</span>
+                          <span>{d.date}: {d.type === 'shortage' ? `عجز ${d.amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : d.type === 'surplus' ? `زيادة ${d.amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : 'مطابق'}</span>
                         </span>
                       ))}
                     </div>

@@ -271,6 +271,7 @@ export const DynamicList = ({
                         type="number"
                         inputMode="decimal"
                         pattern="[0-9]*"
+                        step="any"
                         value={item.amount || ''}
                         onFocus={(e) => e.target.select()}
                         onWheel={(e) => e.currentTarget.blur()}

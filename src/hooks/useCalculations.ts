@@ -42,7 +42,7 @@ export const useCalculations = () => {
   }, 0);
 
   // 4. Total Expenses (المصاريف وسداد الذمم والسلف)
-  const totalExpenses = 
+  const expensesWithoutAdvances = 
     purchasesTotal +
     payMerchantTotal +
     otherExpensesTotal +
@@ -51,28 +51,24 @@ export const useCalculations = () => {
     yahyaTotal +
     abuAbdullahTotal +
     spicesTotal +
-    equipmentTotal +
-    advancesTotal;
+    equipmentTotal;
 
-  // 5. Total Actual Inventory (مجموع الجرد الفعلي: نقد + فيزا + Rt + مايسترو + فرق سعر + سلف + محفظة + كافة المصاريف وقوائم الجرد)
-  // في الكشف الورقي: مجموع الجرد الفعلي = (نقد فعلي + فيزا + Rt + مايسترو + فرق سعر + سلف + المحفظة) + مجموع المصاريف
+  const totalExpenses = expensesWithoutAdvances + advancesTotal;
+  const effectiveAdvances = Number(data.actualInventory.advances) || advancesTotal || 0;
+
+  // 5. Total Actual Inventory (مجموع الجرد الفعلي: نقد + فيزا + Rt + مايسترو + فرق سعر + سلف + محفظة + كافة المصاريف)
   const actualCounted = 
     (Number(data.actualInventory.actualCash) || 0) +
     (Number(data.actualInventory.visa) || 0) +
     (Number(data.actualInventory.rt) || 0) +
     (Number(data.actualInventory.maestro) || 0) +
     (Number(data.actualInventory.priceDifference) || 0) +
-    (Number(data.actualInventory.advances) || advancesTotal || 0) +
+    effectiveAdvances +
     ewalletTotal;
 
   const totalInventory = 
-    (Number(data.actualInventory.actualCash) || 0) +
-    (Number(data.actualInventory.visa) || 0) +
-    (Number(data.actualInventory.rt) || 0) +
-    (Number(data.actualInventory.maestro) || 0) +
-    (Number(data.actualInventory.priceDifference) || 0) +
-    ewalletTotal +
-    totalExpenses;
+    actualCounted +
+    expensesWithoutAdvances;
 
   // Total Collected (المعدود كاش وفيزا وغيره)
   const totalCollected = actualCounted;

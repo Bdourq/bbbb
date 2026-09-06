@@ -325,7 +325,7 @@ export const EmployeeAdvancesSection = React.memo(() => {
                   {data.reduce((acc, emp) => acc + calculateWage(emp.startTime, emp.endTime, emp.hourlyRate), 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                 </td>
                 <td className="px-2 py-2 border border-gray-300 text-center text-red-700" dir="ltr">
-                  {data.reduce((acc, emp) => acc + (Number(emp.amount) || 0), 0).toLocaleString()}
+                  {data.reduce((acc, emp) => acc + (Number(emp.amount) || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                 </td>
                 <td colSpan={1} className="border border-gray-300 hidden print:table-cell"></td>
                 <td colSpan={2} className="border border-gray-300 print:hidden"></td>

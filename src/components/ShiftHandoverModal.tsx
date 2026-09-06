@@ -211,18 +211,18 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
                   <span>{handoverDifference === 0 ? 'مطابقة تامة بين الحسابات والكاش الفعلي!' : handoverDifference > 0 ? 'زيادة نقدية في الشفت الصباحي:' : 'عجز نقدي في الشفت الصباحي:'}</span>
                 </span>
                 <span className="text-lg font-extrabold" dir="ltr">
-                  {Math.abs(handoverDifference).toLocaleString()} {handoverDifference > 0 ? '(زيادة)' : handoverDifference < 0 ? '(عجز)' : ''}
+                  {Math.abs(handoverDifference).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} {handoverDifference > 0 ? '(زيادة)' : handoverDifference < 0 ? '(عجز)' : ''}
                 </span>
               </div>
               
               <div className="pt-2 border-t border-black/10 text-xs leading-relaxed font-semibold">
                 {handoverDifference < 0 ? (
                   <p className="text-red-700">
-                    ⚠️ <strong>تقرير العجز:</strong> يوجد نقص بقيمة <span dir="ltr" className="font-extrabold">{Math.abs(handoverDifference).toLocaleString()}</span> مسجل على الكاشير الصباحي (<span className="underline">{morningCashier || 'غير محدد'}</span>).
+                    ⚠️ <strong>تقرير العجز:</strong> يوجد نقص بقيمة <span dir="ltr" className="font-extrabold">{Math.abs(handoverDifference).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span> مسجل على الكاشير الصباحي (<span className="underline">{morningCashier || 'غير محدد'}</span>).
                   </p>
                 ) : handoverDifference > 0 ? (
                   <p className="text-blue-700">
-                    🌟 <strong>تقرير الزيادة:</strong> يوجد فائض نقدي بقيمة <span dir="ltr" className="font-extrabold">{handoverDifference.toLocaleString()}</span> لصالح الكاشير الصباحي (<span className="underline">{morningCashier || 'غير محدد'}</span>).
+                    🌟 <strong>تقرير الزيادة:</strong> يوجد فائض نقدي بقيمة <span dir="ltr" className="font-extrabold">{handoverDifference.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span> لصالح الكاشير الصباحي (<span className="underline">{morningCashier || 'غير محدد'}</span>).
                   </p>
                 ) : (
                   <p className="text-emerald-700">
