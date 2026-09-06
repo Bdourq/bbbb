@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, ArrowRightLeft, CheckCircle2, Calculator, Clock, TrendingDown, TrendingUp } from 'lucide-react';
 import { useShiftStore } from '../store/useShiftStore';
+import { calculateWage } from './sections2';
 import toast from 'react-hot-toast';
 
 export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
@@ -38,13 +39,12 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
   const newReceivables = data.addNewReceivables ? data.addNewReceivables.reduce((sum, item) => sum + (item.amount || 0), 0) : (data.cashAndSales.addedReceivables || 0);
   const otherSales = data.cashAndSales.otherSales || 0;
 
-  // Sum of all expenses / deductions from main tables
-  const totalExpenses = [
+  // Sum of general expense lists from main tables
+  const generalExpenses = [
     ...(data.purchases || []),
     ...(data.otherExpenses || []),
     ...(data.abuAbdullah || []),
     ...(data.equipment || []),
-    ...(data.addMerchantReceivables || []),
     ...(data.apartment || []),
     ...(data.adminExpenses || []),
     ...(data.ewallet || []),
@@ -53,7 +53,16 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
     ...(data.spices || [])
   ].reduce((sum, item) => sum + (item.amount || 0), 0);
 
-  // Expected cash = Opening + New Receivables - Added Receivables + Sales + Other Sales - Expenses - Visa - RT - Maestro
+  // Sum of employee advances + daily wages (سلف وأجور مياومات الموظفين)
+  const employeeAdvancesAndWages = ((data.employeeAdvances || []).reduce((acc, emp) => {
+    const dailyWage = calculateWage(emp.startTime, emp.endTime, emp.hourlyRate);
+    return acc + dailyWage + (Number(emp.amount) || 0);
+  }, 0)) + (Number(data.actualInventory?.manualAdvances) || 0);
+
+  // Total deductions = general expenses + employee advances and wages
+  const totalExpenses = generalExpenses + employeeAdvancesAndWages;
+
+  // Expected cash = Opening + New Receivables - Added Receivables + Sales + Other Sales - Total Expenses (including advances/wages) - Visa - RT - Maestro
   const expectedCash = openingCash + newReceivables - addedReceivables + sales + otherSales - totalExpenses - visa - rt - maestro;
   const handoverDifference = actualCash - expectedCash; // Positive = surplus, Negative = shortage
 
@@ -209,9 +218,9 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
               </div>
             </div>
 
-            <div className="text-[11px] text-gray-500 pt-2 border-t flex justify-between">
-              <span>النقد الافتتاحي والمصاريف والذمم مسحوبة تلقائياً من الجداول الرئيسية.</span>
-              <span className="font-bold text-gray-700">الكاش المتوقع: {expectedCash.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+            <div className="text-[11px] text-gray-500 pt-2 border-t flex justify-between items-center flex-wrap gap-1">
+              <span>النقد الافتتاحي، المصاريف، سلف وأجور الموظفين ({employeeAdvancesAndWages.toFixed(2)} د.أ) والذمم مسحوبة تلقائياً من الجداول.</span>
+              <span className="font-bold text-gray-800 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">الكاش المتوقع: {expectedCash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.أ</span>
             </div>
           </div>
 
