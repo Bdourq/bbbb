@@ -3,6 +3,7 @@ import { X, CheckCircle2, ArrowLeft, ShieldAlert, Sparkles, UserCheck, AlertTria
 import { useValidationStore } from '../store/useValidationStore';
 import { useShiftStore } from '../store/useShiftStore';
 import { useCalculations } from '../hooks/useCalculations';
+import { cn } from '../lib/utils';
 import toast from 'react-hot-toast';
 
 interface SmartValidationModalProps {
@@ -31,97 +32,128 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
   const morningDiff = shiftDifferences.morning || { cashierName: '', type: 'exact', amount: 0, notes: '' };
   const eveningDiff = shiftDifferences.evening || { cashierName: '', type: 'exact', amount: 0, notes: '' };
 
-  const hasDifference = calc.cashShortage > 0.009 || calc.cashSurplus > 0.009 || morningDiff.amount > 0 || eveningDiff.amount > 0;
+  const totalDiffAmount = calc.cashShortage > 0.009 
+    ? Number(calc.cashShortage.toFixed(2)) 
+    : calc.cashSurplus > 0.009 
+    ? Number(calc.cashSurplus.toFixed(2)) 
+    : 0;
+  const totalDiffType = calc.cashShortage > 0.009 ? 'shortage' : calc.cashSurplus > 0.009 ? 'surplus' : 'exact';
+
+  const hasDifference = totalDiffAmount > 0.009 || morningDiff.amount > 0 || eveningDiff.amount > 0;
+
+  const isInitiallySplit = (morningDiff.amount > 0 && eveningDiff.amount > 0) || morningDiff.notes === 'تقسيم' || eveningDiff.notes === 'تقسيم';
+  const [assignMode, setAssignMode] = useState<'single' | 'split'>(isInitiallySplit ? 'split' : 'single');
 
   const [morningCashier, setMorningCashier] = useState(morningDiff.cashierName || shiftHandover?.morningCashier || '');
-  const [morningType, setMorningType] = useState(morningDiff.type || 'exact');
+  const [morningType, setMorningType] = useState(morningDiff.type || totalDiffType);
   const [morningAmount, setMorningAmount] = useState(morningDiff.amount || 0);
 
   const [eveningCashier, setEveningCashier] = useState(eveningDiff.cashierName || cashierName || shiftHandover?.eveningCashier || '');
-  const [eveningType, setEveningType] = useState(eveningDiff.type || 'exact');
+  const [eveningType, setEveningType] = useState(eveningDiff.type || totalDiffType);
   const [eveningAmount, setEveningAmount] = useState(eveningDiff.amount || 0);
 
   // Sync when modal opens
   useEffect(() => {
     if (isOpen) {
-      setMorningCashier(morningDiff.cashierName || shiftHandover?.morningCashier || '');
-      setMorningType(morningDiff.type || 'exact');
+      const isSplit = (morningDiff.amount > 0 && eveningDiff.amount > 0) || morningDiff.notes === 'تقسيم' || eveningDiff.notes === 'تقسيم';
+      setAssignMode(isSplit ? 'split' : 'single');
+
+      setMorningCashier(morningDiff.cashierName || shiftHandover?.morningCashier || 'قصي البدور');
+      setMorningType(morningDiff.type || totalDiffType);
       setMorningAmount(morningDiff.amount || 0);
 
-      setEveningCashier(eveningDiff.cashierName || cashierName || shiftHandover?.eveningCashier || '');
-      setEveningType(eveningDiff.type || 'exact');
-      setEveningAmount(eveningDiff.amount || 0);
+      setEveningCashier(eveningDiff.cashierName || cashierName || shiftHandover?.eveningCashier || 'أمجد شحادات');
+      setEveningType(eveningDiff.type || totalDiffType);
+      setEveningAmount(eveningDiff.amount || (isSplit ? 0 : totalDiffAmount));
     }
-  }, [isOpen, shiftDifferences, cashierName, shiftHandover]);
+  }, [isOpen, shiftDifferences, cashierName, shiftHandover, totalDiffAmount, totalDiffType]);
 
   if (!isOpen) return null;
 
-  const applyFullToMorning = () => {
-    const isShortage = calc.cashShortage > 0;
-    const amount = Number((isShortage ? calc.cashShortage : calc.cashSurplus).toFixed(2));
-    const type = isShortage ? 'shortage' : calc.cashSurplus > 0 ? 'surplus' : 'exact';
+  // إسناد كامل المبلغ لكاشير واحد
+  const handleAssignSingleCashier = (name: string) => {
+    setAssignMode('single');
+    setEveningCashier(name);
+    setEveningType(totalDiffType);
+    setEveningAmount(totalDiffAmount);
 
-    const mCashier = morningCashier || 'قصي البدور';
-    setMorningCashier(mCashier);
-    setMorningType(type);
-    setMorningAmount(amount);
-
-    setEveningType('exact');
-    setEveningAmount(0);
-  };
-
-  const applyFullToEvening = () => {
-    const isShortage = calc.cashShortage > 0;
-    const amount = Number((isShortage ? calc.cashShortage : calc.cashSurplus).toFixed(2));
-    const type = isShortage ? 'shortage' : calc.cashSurplus > 0 ? 'surplus' : 'exact';
-
-    const eCashier = eveningCashier || 'أمجد شحادات';
-    setEveningCashier(eCashier);
-    setEveningType(type);
-    setEveningAmount(amount);
-
+    setMorningCashier('');
     setMorningType('exact');
     setMorningAmount(0);
   };
 
+  // تقسيم بالتساوي 50% / 50%
+  const handleSplitFiftyFifty = () => {
+    setAssignMode('split');
+    const half = Number((totalDiffAmount / 2).toFixed(2));
+    const remainder = Number((totalDiffAmount - half).toFixed(2));
+    
+    setMorningCashier(morningCashier || 'قصي البدور');
+    setMorningType(totalDiffType);
+    setMorningAmount(half);
+
+    setEveningCashier(eveningCashier || 'أمجد شحادات');
+    setEveningType(totalDiffType);
+    setEveningAmount(remainder);
+  };
+
+  // وضع الباقي لكاشير 2
+  const handleAssignRemainderToEvening = () => {
+    const rem = Math.max(0, Number((totalDiffAmount - (morningAmount || 0)).toFixed(2)));
+    setEveningAmount(rem);
+    setEveningType(totalDiffType);
+  };
+
   const handleFinalConfirm = () => {
     if (hasDifference) {
-      // Validate that if there's morning diff, cashier is chosen
-      if (morningType !== 'exact' && morningAmount > 0 && !morningCashier.trim()) {
-        toast.error('يرجى تحديد اسم الكاشير للشفت الصباحي لوجود فارق مسجل عليه');
-        return;
-      }
-      // Validate that if there's evening diff, cashier is chosen
-      if (eveningType !== 'exact' && eveningAmount > 0 && !eveningCashier.trim()) {
-        toast.error('يرجى تحديد اسم الكاشير للشفت المسائي لوجود فارق مسجل عليه');
-        return;
-      }
-
-      // If no split is entered but total discrepancy exists, require at least one assignment
-      if (morningAmount <= 0 && eveningAmount <= 0 && (calc.cashShortage > 0.009 || calc.cashSurplus > 0.009)) {
-        toast.error('يوجد نقص أو زيادة في الكاش، يرجى تحديد الشفت والكاشير المسؤول بالأسفل');
-        return;
-      }
-
-      // Save shiftDifferences
-      updateData(['shiftDifferences', 'morning'], {
-        cashierName: morningCashier.trim(),
-        type: morningType,
-        amount: Number(morningAmount.toFixed(2)),
-        notes: ''
-      });
-
-      updateData(['shiftDifferences', 'evening'], {
-        cashierName: eveningCashier.trim(),
-        type: eveningType,
-        amount: Number(eveningAmount.toFixed(2)),
-        notes: ''
-      });
-
-      if (eveningCashier.trim()) {
+      if (assignMode === 'single') {
+        if (!eveningCashier.trim()) {
+          toast.error('يرجى اختيار الكاشير المسؤول عن كامل المبلغ');
+          return;
+        }
+        updateData(['shiftDifferences', 'morning'], {
+          cashierName: '',
+          type: 'exact',
+          amount: 0,
+          notes: ''
+        });
+        updateData(['shiftDifferences', 'evening'], {
+          cashierName: eveningCashier.trim(),
+          type: totalDiffType,
+          amount: totalDiffAmount,
+          notes: 'مسائي'
+        });
         updateData(['cashierName'], eveningCashier.trim());
-      } else if (morningCashier.trim()) {
-        updateData(['cashierName'], morningCashier.trim());
+      } else {
+        // Mode split
+        if (morningAmount > 0 && !morningCashier.trim()) {
+          toast.error('يرجى تحديد اسم كاشير 1');
+          return;
+        }
+        if (eveningAmount > 0 && !eveningCashier.trim()) {
+          toast.error('يرجى تحديد اسم كاشير 2');
+          return;
+        }
+        if (morningAmount <= 0 && eveningAmount <= 0) {
+          toast.error('يرجى إدخال مبالغ التقسيم بين الكاشيرين');
+          return;
+        }
+
+        updateData(['shiftDifferences', 'morning'], {
+          cashierName: morningCashier.trim(),
+          type: morningType,
+          amount: Number(morningAmount.toFixed(2)),
+          notes: 'تقسيم'
+        });
+
+        updateData(['shiftDifferences', 'evening'], {
+          cashierName: eveningCashier.trim(),
+          type: eveningType,
+          amount: Number(eveningAmount.toFixed(2)),
+          notes: 'تقسيم'
+        });
+
+        updateData(['cashierName'], `${morningCashier.trim()} + ${eveningCashier.trim()}`);
       }
     }
 
@@ -156,116 +188,203 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
           </div>
           <div>
             <h3 className="text-xl font-bold text-gray-900">نظام الإغلاق والتحقق الذكي</h3>
-            <p className="text-xs text-gray-500 mt-0.5">فحص توازن الكاش وفوارق الشفتين قبل الإغلاق النهائي</p>
+            <p className="text-xs text-gray-500 mt-0.5">فحص توازن الكاش وتوثيق الفوارق على الكاشيرية</p>
           </div>
         </div>
 
         {/* CASHIER & TWO SHIFT SELECTION: ONLY IF THERE IS SHORTAGE OR SURPLUS */}
         {hasDifference ? (
-          <div className="mb-5 bg-gradient-to-br from-rose-50/90 to-indigo-50/60 border-2 border-rose-300 p-4 rounded-xl space-y-3">
+          <div className="mb-5 bg-gradient-to-br from-rose-50/90 to-indigo-50/60 border-2 border-rose-300 p-4 rounded-xl space-y-3.5">
+            {/* رأس اللوحة */}
             <div className="flex items-center justify-between flex-wrap gap-2">
               <label className="text-xs sm:text-sm font-extrabold text-rose-950 flex items-center gap-1.5">
                 <UserCheck size={18} className="text-rose-600" />
                 <span>
-                  توثيق فوارق الكاش للشفتين ({calc.cashShortage > 0.009 ? `عجز إجمالي ${calc.cashShortage.toFixed(2)} د.أ` : `زيادة إجمالية ${calc.cashSurplus.toFixed(2)} د.أ`}):
+                  توثيق الفارق ({totalDiffType === 'shortage' ? `عجز ${totalDiffAmount.toFixed(2)} د.أ` : `زيادة ${totalDiffAmount.toFixed(2)} د.أ`}):
                 </span>
               </label>
-              <div className="flex items-center gap-1.5">
+
+              {/* أزرار التبديل: كاشير واحد أم تقسيم */}
+              <div className="flex items-center bg-white p-0.5 rounded-lg border border-indigo-200">
                 <button
                   type="button"
-                  onClick={applyFullToMorning}
-                  className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded text-[11px] font-bold transition-all shadow-xs"
+                  onClick={() => handleAssignSingleCashier(eveningCashier || 'قصي البدور')}
+                  className={cn(
+                    "px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer",
+                    assignMode === 'single'
+                      ? "bg-indigo-600 text-white font-black shadow-xs"
+                      : "text-gray-600 hover:text-indigo-700"
+                  )}
                 >
-                  ⚡ كامل الفرق عالصباحي
+                  👤 كاشير واحد
                 </button>
                 <button
                   type="button"
-                  onClick={applyFullToEvening}
-                  className="px-2 py-0.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-900 border border-indigo-300 rounded text-[11px] font-bold transition-all shadow-xs"
+                  onClick={handleSplitFiftyFifty}
+                  className={cn(
+                    "px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer",
+                    assignMode === 'split'
+                      ? "bg-indigo-600 text-white font-black shadow-xs"
+                      : "text-gray-600 hover:text-indigo-700"
+                  )}
                 >
-                  ⚡ كامل الفرق عالمسائي
+                  👥 تقسيم كاشيرين
                 </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {/* شفت صباحي */}
-              <div className="p-2.5 bg-white border border-amber-200 rounded-lg space-y-1.5 shadow-xs">
-                <span className="text-[11px] font-black text-amber-900 flex items-center gap-1">
-                  <span>☀️</span>
-                  <span>الشفت الصباحي</span>
+            {/* الوضع 1: كاشير واحد */}
+            {assignMode === 'single' ? (
+              <div className="bg-white p-3 border border-indigo-200 rounded-xl space-y-2.5">
+                <span className="text-xs font-bold text-gray-700 block">
+                  اختر الكاشير المسؤول عن كامل المبلغ ({totalDiffAmount.toFixed(2)} د.أ {totalDiffType === 'shortage' ? 'عجز' : 'زيادة'}):
                 </span>
-                <select
-                  value={morningCashier}
-                  onChange={(e) => setMorningCashier(e.target.value)}
-                  className="w-full px-2 py-1 bg-amber-50/40 border border-amber-300 rounded text-xs font-bold text-gray-900 outline-none"
-                >
-                  <option value="">-- اختر كاشير الصباحي --</option>
-                  <option value="قصي البدور">قصي البدور</option>
-                  <option value="أمجد شحادات">أمجد شحادات</option>
-                </select>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <select
-                    value={morningType}
-                    onChange={(e) => setMorningType(e.target.value as any)}
-                    className="w-full px-1.5 py-1 border border-gray-300 rounded text-xs font-bold text-gray-900"
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleAssignSingleCashier('قصي البدور')}
+                    className={cn(
+                      "p-2.5 rounded-lg border text-center transition-all cursor-pointer",
+                      eveningCashier === 'قصي البدور'
+                        ? "bg-indigo-50 border-indigo-500 text-indigo-950 font-black ring-2 ring-indigo-200"
+                        : "bg-gray-50 border-gray-200 hover:bg-gray-100 text-gray-700 font-bold"
+                    )}
                   >
-                    <option value="exact">مطابق</option>
-                    <option value="shortage">عجز</option>
-                    <option value="surplus">زيادة</option>
-                  </select>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={morningAmount || ''}
-                    onChange={(e) => setMorningAmount(parseFloat(e.target.value) || 0)}
-                    placeholder="0.00"
-                    className="w-full px-1.5 py-1 border border-gray-300 rounded text-xs font-bold text-gray-900 text-center"
-                  />
+                    👤 قصي البدور
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAssignSingleCashier('أمجد شحادات')}
+                    className={cn(
+                      "p-2.5 rounded-lg border text-center transition-all cursor-pointer",
+                      eveningCashier === 'أمجد شحادات'
+                        ? "bg-indigo-50 border-indigo-500 text-indigo-950 font-black ring-2 ring-indigo-200"
+                        : "bg-gray-50 border-gray-200 hover:bg-gray-100 text-gray-700 font-bold"
+                    )}
+                  >
+                    👤 أمجد شحادات
+                  </button>
                 </div>
-              </div>
 
-              {/* شفت مسائي */}
-              <div className="p-2.5 bg-white border border-indigo-200 rounded-lg space-y-1.5 shadow-xs">
-                <span className="text-[11px] font-black text-indigo-900 flex items-center gap-1">
-                  <span>🌙</span>
-                  <span>الشفت المسائي</span>
-                </span>
-                <select
-                  value={eveningCashier}
-                  onChange={(e) => setEveningCashier(e.target.value)}
-                  className="w-full px-2 py-1 bg-indigo-50/40 border border-indigo-300 rounded text-xs font-bold text-gray-900 outline-none"
-                >
-                  <option value="">-- اختر كاشير المسائي --</option>
-                  <option value="أمجد شحادات">أمجد شحادات</option>
-                  <option value="قصي البدور">قصي البدور</option>
-                </select>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <select
-                    value={eveningType}
-                    onChange={(e) => setEveningType(e.target.value as any)}
-                    className="w-full px-1.5 py-1 border border-gray-300 rounded text-xs font-bold text-gray-900"
-                  >
-                    <option value="exact">مطابق</option>
-                    <option value="shortage">عجز</option>
-                    <option value="surplus">زيادة</option>
-                  </select>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={eveningAmount || ''}
-                    onChange={(e) => setEveningAmount(parseFloat(e.target.value) || 0)}
-                    placeholder="0.00"
-                    className="w-full px-1.5 py-1 border border-gray-300 rounded text-xs font-bold text-gray-900 text-center"
-                  />
+                <div className="p-2 bg-emerald-50 border border-emerald-200 rounded text-[11px] font-bold text-emerald-900 text-center">
+                  ✅ سيتم تحميل كامل الفرق ({totalDiffAmount.toFixed(2)} د.أ) على: <strong className="font-black text-emerald-950">{eveningCashier || 'يرجى الاختيار'}</strong>
                 </div>
               </div>
-            </div>
+            ) : (
+              /* الوضع 2: تقسيم كاشيرين */
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between flex-wrap gap-1.5 bg-indigo-100/70 p-2 rounded-lg text-xs">
+                  <button
+                    type="button"
+                    onClick={handleSplitFiftyFifty}
+                    className="px-2.5 py-1 bg-white hover:bg-indigo-50 text-indigo-950 border border-indigo-300 rounded font-black text-[11px] cursor-pointer"
+                  >
+                    ⚡ تقسيم 50% / 50%
+                  </button>
+
+                  {(() => {
+                    const sum = Number(((morningAmount || 0) + (eveningAmount || 0)).toFixed(2));
+                    const rem = Number((totalDiffAmount - sum).toFixed(2));
+                    return Math.abs(rem) < 0.01 ? (
+                      <span className="text-emerald-800 font-black text-[11px]">✔️ المجموع موزع بالكامل ({sum.toFixed(2)} د.أ)</span>
+                    ) : rem > 0 ? (
+                      <div className="flex items-center gap-1">
+                        <span className="text-amber-800 font-bold text-[11px]">متبقي: {rem.toFixed(2)} د.أ</span>
+                        <button
+                          type="button"
+                          onClick={handleAssignRemainderToEvening}
+                          className="px-1.5 py-0.5 bg-amber-500 text-white rounded text-[10px] font-bold cursor-pointer"
+                        >
+                          + وضعه لكاشير 2
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-rose-800 font-bold text-[11px]">⚠️ زائد بـ {Math.abs(rem).toFixed(2)} د.أ</span>
+                    );
+                  })()}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {/* كاشير 1 */}
+                  <div className="p-2.5 bg-white border border-amber-200 rounded-lg space-y-1.5 shadow-xs">
+                    <span className="text-[11px] font-black text-amber-900 flex items-center gap-1">
+                      <span>👤</span>
+                      <span>كاشير 1</span>
+                    </span>
+                    <select
+                      value={morningCashier}
+                      onChange={(e) => setMorningCashier(e.target.value)}
+                      className="w-full px-2 py-1 bg-amber-50/40 border border-amber-300 rounded text-xs font-bold text-gray-900 outline-none"
+                    >
+                      <option value="">-- اختر كاشير 1 --</option>
+                      <option value="قصي البدور">قصي البدور</option>
+                      <option value="أمجد شحادات">أمجد شحادات</option>
+                    </select>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <select
+                        value={morningType}
+                        onChange={(e) => setMorningType(e.target.value as any)}
+                        className="w-full px-1.5 py-1 border border-gray-300 rounded text-xs font-bold text-gray-900"
+                      >
+                        <option value="shortage">عجز</option>
+                        <option value="surplus">زيادة</option>
+                        <option value="exact">مطابق</option>
+                      </select>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={morningAmount || ''}
+                        onChange={(e) => setMorningAmount(parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                        className="w-full px-1.5 py-1 border-2 border-amber-300 rounded text-xs font-black text-gray-900 text-center"
+                      />
+                    </div>
+                  </div>
+
+                  {/* كاشير 2 */}
+                  <div className="p-2.5 bg-white border border-indigo-200 rounded-lg space-y-1.5 shadow-xs">
+                    <span className="text-[11px] font-black text-indigo-900 flex items-center gap-1">
+                      <span>👤</span>
+                      <span>كاشير 2</span>
+                    </span>
+                    <select
+                      value={eveningCashier}
+                      onChange={(e) => setEveningCashier(e.target.value)}
+                      className="w-full px-2 py-1 bg-indigo-50/40 border border-indigo-300 rounded text-xs font-bold text-gray-900 outline-none"
+                    >
+                      <option value="">-- اختر كاشير 2 --</option>
+                      <option value="أمجد شحادات">أمجد شحادات</option>
+                      <option value="قصي البدور">قصي البدور</option>
+                    </select>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <select
+                        value={eveningType}
+                        onChange={(e) => setEveningType(e.target.value as any)}
+                        className="w-full px-1.5 py-1 border border-gray-300 rounded text-xs font-bold text-gray-900"
+                      >
+                        <option value="shortage">عجز</option>
+                        <option value="surplus">زيادة</option>
+                        <option value="exact">مطابق</option>
+                      </select>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={eveningAmount || ''}
+                        onChange={(e) => setEveningAmount(parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                        className="w-full px-1.5 py-1 border-2 border-indigo-300 rounded text-xs font-black text-gray-900 text-center"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <p className="text-[10px] text-gray-600 font-semibold text-center">
-              سيتم توثيق فوارق كل شفت باسم الكاشير الخاص به في تقرير الكاشيرية.
+              سيتم توثيق فوارق كل كاشير بدقة وترحيلها لتقرير الكاشيرية.
             </p>
           </div>
         ) : (

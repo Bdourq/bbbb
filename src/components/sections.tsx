@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useShiftStore } from '../store/useShiftStore';
 import { useCalculations } from '../hooks/useCalculations';
 import { useValidationStore } from '../store/useValidationStore';
@@ -321,6 +321,17 @@ export const ActualInventorySection = React.memo(() => {
   const morningDiff = shiftDifferences.morning || { cashierName: '', type: 'exact', amount: 0, notes: '' };
   const eveningDiff = shiftDifferences.evening || { cashierName: '', type: 'exact', amount: 0, notes: '' };
 
+  const totalDiffAmount = calc.cashShortage > 0.009 
+    ? Number(calc.cashShortage.toFixed(2)) 
+    : calc.cashSurplus > 0.009 
+    ? Number(calc.cashSurplus.toFixed(2)) 
+    : 0;
+  const totalDiffType = calc.cashShortage > 0.009 ? 'shortage' : calc.cashSurplus > 0.009 ? 'surplus' : 'exact';
+
+  // Determine current mode based on existing data
+  const isSplitActive = (morningDiff.amount > 0 && eveningDiff.amount > 0) || (shiftDifferences.morning?.notes === 'تقسيم' || shiftDifferences.evening?.notes === 'تقسيم');
+  const [assignMode, setAssignMode] = useState<'single' | 'split'>(isSplitActive ? 'split' : 'single');
+
   const errorMessage = useValidationStore(state => state.errors['actualInventory']);
   const clearError = useValidationStore(state => state.clearError);
   const hasError = Boolean(errorMessage);
@@ -332,53 +343,68 @@ export const ActualInventorySection = React.memo(() => {
     }
   };
 
+  // الإسناد لكاشير واحد بكامل المبلغ
+  const handleAssignSingle = (selectedName: string) => {
+    if (!selectedName) return;
+    updateData(['shiftDifferences', 'morning'], {
+      cashierName: '',
+      type: 'exact',
+      amount: 0,
+      notes: ''
+    });
+    updateData(['shiftDifferences', 'evening'], {
+      cashierName: selectedName,
+      type: totalDiffType,
+      amount: totalDiffAmount,
+      notes: 'مسائي'
+    });
+    updateData(['cashierName'], selectedName);
+  };
+
+  // الإسناد والتقسيم بالتساوي 50% / 50%
+  const handleSplitFiftyFifty = () => {
+    const half = Number((totalDiffAmount / 2).toFixed(2));
+    const remainder = Number((totalDiffAmount - half).toFixed(2));
+    const c1 = morningDiff.cashierName || 'قصي البدور';
+    const c2 = eveningDiff.cashierName || cashierName || 'أمجد شحادات';
+
+    updateData(['shiftDifferences', 'morning'], {
+      cashierName: c1,
+      type: totalDiffType,
+      amount: half,
+      notes: 'تقسيم'
+    });
+    updateData(['shiftDifferences', 'evening'], {
+      cashierName: c2,
+      type: totalDiffType,
+      amount: remainder,
+      notes: 'تقسيم'
+    });
+    updateData(['cashierName'], `${c1} (${half}) + ${c2} (${remainder})`);
+  };
+
+  // وضع باقي المبلغ على كاشير 2
+  const handleAssignRemainderToC2 = () => {
+    const c1Amount = morningDiff.amount || 0;
+    const remainder = Math.max(0, Number((totalDiffAmount - c1Amount).toFixed(2)));
+    const c2 = eveningDiff.cashierName || cashierName || 'أمجد شحادات';
+
+    updateData(['shiftDifferences', 'evening'], {
+      cashierName: c2,
+      type: totalDiffType,
+      amount: remainder,
+      notes: 'تقسيم'
+    });
+  };
+
   const handleUpdateMorning = (field: string, val: any) => {
     updateData(['shiftDifferences', 'morning', field], val);
   };
 
   const handleUpdateEvening = (field: string, val: any) => {
     updateData(['shiftDifferences', 'evening', field], val);
-    if (field === 'cashierName' && val) {
+    if (field === 'cashierName' && val && assignMode === 'single') {
       updateData(['cashierName'], val);
-    }
-  };
-
-  const applyFullToMorning = () => {
-    const isShortage = calc.cashShortage > 0;
-    const amount = isShortage ? calc.cashShortage : calc.cashSurplus;
-    const type = isShortage ? 'shortage' : calc.cashSurplus > 0 ? 'surplus' : 'exact';
-    updateData(['shiftDifferences', 'morning'], {
-      cashierName: morningDiff.cashierName || 'قصي البدور',
-      type,
-      amount: Number(amount.toFixed(2)),
-      notes: ''
-    });
-    updateData(['shiftDifferences', 'evening'], {
-      cashierName: eveningDiff.cashierName || cashierName || 'أمجد شحادات',
-      type: 'exact',
-      amount: 0,
-      notes: ''
-    });
-  };
-
-  const applyFullToEvening = () => {
-    const isShortage = calc.cashShortage > 0;
-    const amount = isShortage ? calc.cashShortage : calc.cashSurplus;
-    const type = isShortage ? 'shortage' : calc.cashSurplus > 0 ? 'surplus' : 'exact';
-    updateData(['shiftDifferences', 'morning'], {
-      cashierName: morningDiff.cashierName || 'قصي البدور',
-      type: 'exact',
-      amount: 0,
-      notes: ''
-    });
-    updateData(['shiftDifferences', 'evening'], {
-      cashierName: eveningDiff.cashierName || cashierName || 'أمجد شحادات',
-      type,
-      amount: Number(amount.toFixed(2)),
-      notes: ''
-    });
-    if (!cashierName) {
-      updateData(['cashierName'], eveningDiff.cashierName || 'أمجد شحادات');
     }
   };
 
@@ -386,14 +412,23 @@ export const ActualInventorySection = React.memo(() => {
     if (!shiftHandover) return;
     const diff = shiftHandover.difference || 0;
     const type = diff < -0.009 ? 'shortage' : diff > 0.009 ? 'surplus' : 'exact';
+    const morningAmt = Number(Math.abs(diff).toFixed(2));
+    
     updateData(['shiftDifferences', 'morning'], {
       cashierName: shiftHandover.morningCashier || 'قصي البدور',
       type,
-      amount: Number(Math.abs(diff).toFixed(2)),
-      notes: 'مسحوب من تسليم الشفت'
+      amount: morningAmt,
+      notes: 'صباحي'
     });
     if (shiftHandover.eveningCashier) {
       updateData(['shiftDifferences', 'evening', 'cashierName'], shiftHandover.eveningCashier);
+      // إذا كان الإجمالي أكبر من الصباحي، احسب الباقي للمسائي
+      const remainingForEvening = Math.max(0, Number((totalDiffAmount - morningAmt).toFixed(2)));
+      if (remainingForEvening > 0) {
+        updateData(['shiftDifferences', 'evening', 'amount'], remainingForEvening);
+        updateData(['shiftDifferences', 'evening', 'type'], totalDiffType);
+        updateData(['shiftDifferences', 'evening', 'notes'], 'مسائي');
+      }
     }
   };
 
@@ -647,63 +682,81 @@ export const ActualInventorySection = React.memo(() => {
                 ) : '-'}
               </td>
             </tr>
-            {/* توثيق فوارق الشفت الصباحي والمسائي بحال وجود نقص أو زيادة */}
+            {/* توثيق فوارق الكاش للشفتين أو الكاشير المسؤول بحال وجود نقص أو زيادة */}
             {(calc.cashShortage > 0 || calc.cashSurplus > 0 || morningDiff.amount > 0 || eveningDiff.amount > 0) ? (
               <>
-                {/* صف تفاصيل الشفت الصباحي */}
-                <tr className="bg-amber-50/80 border-b border-gray-300 font-bold text-xs sm:text-sm">
-                  <td className="px-2 py-2 border border-gray-300 text-center">
-                    <div className="flex flex-col items-center justify-center gap-0.5">
-                      <span className="text-amber-950 font-black">☀️ الشفت الصباحي</span>
-                      <span className="text-[11px] text-amber-800">
-                        ({morningDiff.cashierName || 'كاشير صباحي'})
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-2 py-2 border border-gray-300 text-center font-black" dir="ltr">
-                    {morningDiff.amount > 0 ? (
-                      <span className={cn(
-                        "px-2 py-0.5 rounded text-xs sm:text-sm font-black inline-block",
-                        morningDiff.type === 'shortage' ? "text-rose-700 bg-rose-100 border border-rose-300" : "text-emerald-700 bg-emerald-100 border border-emerald-300"
-                      )}>
-                        {morningDiff.type === 'shortage' ? '-' : '+'}{morningDiff.amount.toFixed(2)} د.أ ({morningDiff.type === 'shortage' ? 'عجز' : 'زيادة'})
-                      </span>
-                    ) : (
-                      <span className="text-emerald-700 font-bold text-xs">مطابق (0.00)</span>
-                    )}
-                  </td>
-                </tr>
+                {morningDiff.amount > 0 && eveningDiff.amount > 0 ? (
+                  <>
+                    {/* صف كاشير 1 */}
+                    <tr className="bg-amber-50/80 border-b border-gray-300 font-bold text-xs sm:text-sm">
+                      <td className="px-2 py-2 border border-gray-300 text-center">
+                        <div className="flex flex-col items-center justify-center gap-0.5">
+                          <span className="text-amber-950 font-black">👤 كاشير 1 ({morningDiff.cashierName || 'غير محدد'})</span>
+                          <span className="text-[10px] text-amber-800">
+                            {morningDiff.notes === 'تقسيم' ? 'حصة التقسيم' : 'الشفت الصباحي'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-2 py-2 border border-gray-300 text-center font-black" dir="ltr">
+                        <span className={cn(
+                          "px-2 py-0.5 rounded text-xs sm:text-sm font-black inline-block",
+                          morningDiff.type === 'shortage' ? "text-rose-700 bg-rose-100 border border-rose-300" : "text-emerald-700 bg-emerald-100 border border-emerald-300"
+                        )}>
+                          {morningDiff.type === 'shortage' ? '-' : '+'}{morningDiff.amount.toFixed(2)} د.أ ({morningDiff.type === 'shortage' ? 'عجز' : 'زيادة'})
+                        </span>
+                      </td>
+                    </tr>
 
-                {/* صف تفاصيل الشفت المسائي */}
-                <tr className="bg-indigo-50/80 border-b border-gray-300 font-bold text-xs sm:text-sm">
-                  <td className="px-2 py-2 border border-gray-300 text-center">
-                    <div className="flex flex-col items-center justify-center gap-0.5">
-                      <span className="text-indigo-950 font-black">🌙 الشفت المسائي</span>
-                      <span className="text-[11px] text-indigo-800">
-                        ({eveningDiff.cashierName || cashierName || 'كاشير مسائي'})
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-2 py-2 border border-gray-300 text-center font-black" dir="ltr">
-                    {eveningDiff.amount > 0 ? (
+                    {/* صف كاشير 2 */}
+                    <tr className="bg-indigo-50/80 border-b border-gray-300 font-bold text-xs sm:text-sm">
+                      <td className="px-2 py-2 border border-gray-300 text-center">
+                        <div className="flex flex-col items-center justify-center gap-0.5">
+                          <span className="text-indigo-950 font-black">👤 كاشير 2 ({eveningDiff.cashierName || cashierName || 'غير محدد'})</span>
+                          <span className="text-[10px] text-indigo-800">
+                            {eveningDiff.notes === 'تقسيم' ? 'حصة التقسيم' : 'الشفت المسائي'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-2 py-2 border border-gray-300 text-center font-black" dir="ltr">
+                        <span className={cn(
+                          "px-2 py-0.5 rounded text-xs sm:text-sm font-black inline-block",
+                          eveningDiff.type === 'shortage' ? "text-rose-700 bg-rose-100 border border-rose-300" : "text-emerald-700 bg-emerald-100 border border-emerald-300"
+                        )}>
+                          {eveningDiff.type === 'shortage' ? '-' : '+'}{eveningDiff.amount.toFixed(2)} د.أ ({eveningDiff.type === 'shortage' ? 'عجز' : 'زيادة'})
+                        </span>
+                      </td>
+                    </tr>
+                  </>
+                ) : (
+                  /* صف الكاشير الوحيد المسؤول عن كامل المبلغ */
+                  <tr className="bg-rose-50/70 border-b border-gray-300 font-bold text-xs sm:text-sm">
+                    <td className="px-2 py-2 border border-gray-300 text-center">
+                      <div className="flex flex-col items-center justify-center gap-0.5">
+                        <span className="text-rose-950 font-black">
+                          👤 الكاشير المسؤول: {eveningDiff.cashierName || morningDiff.cashierName || cashierName || 'غير محدد'}
+                        </span>
+                        <span className="text-[10px] text-rose-800">
+                          (كامل المبلغ مسجل على كاشير واحد)
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-2 py-2 border border-gray-300 text-center font-black" dir="ltr">
                       <span className={cn(
                         "px-2 py-0.5 rounded text-xs sm:text-sm font-black inline-block",
-                        eveningDiff.type === 'shortage' ? "text-rose-700 bg-rose-100 border border-rose-300" : "text-emerald-700 bg-emerald-100 border border-emerald-300"
+                        totalDiffType === 'shortage' ? "text-rose-700 bg-rose-100 border border-rose-300" : "text-emerald-700 bg-emerald-100 border border-emerald-300"
                       )}>
-                        {eveningDiff.type === 'shortage' ? '-' : '+'}{eveningDiff.amount.toFixed(2)} د.أ ({eveningDiff.type === 'shortage' ? 'عجز' : 'زيادة'})
+                        {totalDiffType === 'shortage' ? '-' : '+'}{totalDiffAmount.toFixed(2)} د.أ ({totalDiffType === 'shortage' ? 'عجز كامل' : 'زيادة كاملة'})
                       </span>
-                    ) : (
-                      <span className="text-emerald-700 font-bold text-xs">مطابق (0.00)</span>
-                    )}
-                  </td>
-                </tr>
+                    </td>
+                  </tr>
+                )}
               </>
             ) : (
               <tr className="bg-emerald-50/60 text-emerald-900 font-semibold border-b border-gray-300">
                 <td colSpan={2} className="px-3 py-2 text-center text-xs">
                   <span className="inline-flex items-center justify-center gap-1.5 font-bold text-emerald-800">
                     <span className="text-sm">✨</span>
-                    <span>الكاش مطابق تماماً (لا يوجد نقص أو زيادة) — لا يتطلب تحديد الكاشير والشفت</span>
+                    <span>الكاش مطابق تماماً (لا يوجد نقص أو زيادة) — لا يتطلب تحديد الكاشير</span>
                   </span>
                 </td>
               </tr>
@@ -711,164 +764,303 @@ export const ActualInventorySection = React.memo(() => {
           </tbody>
         </table>
 
-        {/* لوحة التحكم بتسجيل وتوزيع فوارق الشفتين الصباحي والمسائي */}
+        {/* لوحة التحكم بتسجيل وتوزيع فوارق الكاش (كاشير واحد أو تقسيم كاشيرين) */}
         {(calc.cashShortage > 0 || calc.cashSurplus > 0 || morningDiff.amount > 0 || eveningDiff.amount > 0) && (
-          <div className="mt-4 p-3.5 bg-gradient-to-br from-slate-50 to-indigo-50/40 border-2 border-indigo-200 rounded-xl space-y-3 print:hidden">
-            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-indigo-100 pb-2">
-              <span className="text-xs sm:text-sm font-black text-indigo-950 flex items-center gap-1.5">
-                <span>📝</span>
-                <span>تحديد وتوزيع عجز / زيادة الشفتين (الصباحي والمسائي):</span>
-              </span>
-              <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="mt-4 p-3.5 bg-gradient-to-br from-slate-50 to-indigo-50/40 border-2 border-indigo-200 rounded-xl space-y-3.5 print:hidden">
+            {/* الشريط العلوي: خيارات الإسناد الإجمالي */}
+            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-indigo-100 pb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black text-indigo-950 flex items-center gap-1.5">
+                  <span>📝</span>
+                  <span>تحديد الكاشير المسؤول مساءً:</span>
+                </span>
+                <span className={cn(
+                  "text-xs font-black px-2 py-0.5 rounded-full border",
+                  totalDiffType === 'shortage' ? "bg-rose-100 text-rose-900 border-rose-300" : "bg-emerald-100 text-emerald-900 border-emerald-300"
+                )}>
+                  إجمالي الفرق: {totalDiffType === 'shortage' ? '-' : '+'}{totalDiffAmount.toFixed(2)} د.أ ({totalDiffType === 'shortage' ? 'عجز' : 'زيادة'})
+                </span>
+              </div>
+
+              {/* أزرار التبديل بين كاشير واحد أو كاشيرين */}
+              <div className="flex items-center bg-white p-1 rounded-xl border border-indigo-200 shadow-xs">
                 <button
                   type="button"
-                  onClick={applyFullToMorning}
-                  className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95"
-                  title="تسجيل كامل الفرق المالي على الشفت الصباحي"
+                  onClick={() => {
+                    setAssignMode('single');
+                    const c = eveningDiff.cashierName || morningDiff.cashierName || cashierName || 'قصي البدور';
+                    handleAssignSingle(c);
+                  }}
+                  className={cn(
+                    "px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                    assignMode === 'single'
+                      ? "bg-indigo-600 text-white shadow-xs font-extrabold"
+                      : "text-gray-600 hover:text-indigo-700"
+                  )}
                 >
-                  ⚡ كامل الفرق على الصباحي
+                  👤 كاشير واحد (كامل المبلغ)
                 </button>
                 <button
                   type="button"
-                  onClick={applyFullToEvening}
-                  className="px-2.5 py-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-900 border border-indigo-300 rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95"
-                  title="تسجيل كامل الفرق المالي على الشفت المسائي"
+                  onClick={() => {
+                    setAssignMode('split');
+                    if (morningDiff.amount <= 0 && eveningDiff.amount <= 0) {
+                      handleSplitFiftyFifty();
+                    }
+                  }}
+                  className={cn(
+                    "px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                    assignMode === 'split'
+                      ? "bg-indigo-600 text-white shadow-xs font-extrabold"
+                      : "text-gray-600 hover:text-indigo-700"
+                  )}
                 >
-                  ⚡ كامل الفرق على المسائي
+                  👥 تقسيم بين كاشيرين
                 </button>
-                {shiftHandover && (
+              </div>
+            </div>
+
+            {/* الوضع الأول: كاشير واحد (كامل المبلغ) */}
+            {assignMode === 'single' ? (
+              <div className="bg-white p-3.5 border border-indigo-200 rounded-xl space-y-3 shadow-xs">
+                <div className="text-xs font-bold text-gray-700 flex items-center gap-1">
+                  <span>👈 اختر الكاشير لتحميل كامل المبلغ عليه ({totalDiffAmount.toFixed(2)} د.أ {totalDiffType === 'shortage' ? 'عجز' : 'زيادة'}):</span>
+                </div>
+
+                {/* أزرار سريعة للاختيار المباشر */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <button
                     type="button"
-                    onClick={syncFromHandover}
-                    className="px-2 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95"
-                    title="مزامنة تلقائية من بيانات تسليم الشفت الصباحي"
+                    onClick={() => handleAssignSingle('قصي البدور')}
+                    className={cn(
+                      "p-3 rounded-xl border-2 text-right transition-all flex items-center justify-between cursor-pointer",
+                      (eveningDiff.cashierName === 'قصي البدور' || cashierName === 'قصي البدور') && eveningDiff.amount > 0 && morningDiff.amount <= 0
+                        ? "bg-indigo-50 border-indigo-500 text-indigo-950 font-black ring-2 ring-indigo-200"
+                        : "bg-gray-50/70 border-gray-200 hover:bg-gray-100 text-gray-800"
+                    )}
                   >
-                    🔄 جلب من تسليم الشفت
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">👤</span>
+                      <span className="text-sm font-bold">قصي البدور</span>
+                    </div>
+                    <span className="text-xs font-black text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">
+                      كامل {totalDiffAmount.toFixed(2)} د.أ
+                    </span>
                   </button>
-                )}
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* قسم الشفت الصباحي */}
-              <div className="p-3 bg-white border border-amber-200 rounded-xl space-y-2 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-amber-900 flex items-center gap-1">
-                    <span>☀️</span>
-                    <span>الشفت الصباحي</span>
-                  </span>
-                  {morningDiff.amount > 0 && (
-                    <span className={cn(
-                      "text-[11px] font-black px-1.5 py-0.5 rounded",
-                      morningDiff.type === 'shortage' ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"
-                    )}>
-                      {morningDiff.type === 'shortage' ? 'عجز' : 'زيادة'}: {morningDiff.amount} د.أ
-                    </span>
-                  )}
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-gray-700 block">اسم الكاشير الصباحي:</label>
-                  <select
-                    value={morningDiff.cashierName || ''}
-                    onChange={(e) => handleUpdateMorning('cashierName', e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-amber-50/40 border border-amber-300 rounded-lg text-xs font-bold text-gray-900 outline-none focus:ring-2 focus:ring-amber-400"
+                  <button
+                    type="button"
+                    onClick={() => handleAssignSingle('أمجد شحادات')}
+                    className={cn(
+                      "p-3 rounded-xl border-2 text-right transition-all flex items-center justify-between cursor-pointer",
+                      (eveningDiff.cashierName === 'أمجد شحادات' || cashierName === 'أمجد شحادات') && eveningDiff.amount > 0 && morningDiff.amount <= 0
+                        ? "bg-indigo-50 border-indigo-500 text-indigo-950 font-black ring-2 ring-indigo-200"
+                        : "bg-gray-50/70 border-gray-200 hover:bg-gray-100 text-gray-800"
+                    )}
                   >
-                    <option value="">-- اختر كاشير الصباحي --</option>
-                    <option value="قصي البدور">قصي البدور</option>
-                    <option value="أمجد شحادات">أمجد شحادات</option>
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[11px] font-bold text-gray-700 block">الحالة:</label>
-                    <select
-                      value={morningDiff.type || 'exact'}
-                      onChange={(e) => handleUpdateMorning('type', e.target.value)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 outline-none focus:ring-2 focus:ring-amber-400"
-                    >
-                      <option value="exact">مطابق (لا يوجد)</option>
-                      <option value="shortage">عجز (نقص)</option>
-                      <option value="surplus">زيادة</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-bold text-gray-700 block">المبلغ (د.أ):</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={morningDiff.amount || ''}
-                      onChange={(e) => handleUpdateMorning('amount', parseFloat(e.target.value) || 0)}
-                      placeholder="0.00"
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 text-center outline-none focus:ring-2 focus:ring-amber-400"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* قسم الشفت المسائي */}
-              <div className="p-3 bg-white border border-indigo-200 rounded-xl space-y-2 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-indigo-900 flex items-center gap-1">
-                    <span>🌙</span>
-                    <span>الشفت المسائي</span>
-                  </span>
-                  {eveningDiff.amount > 0 && (
-                    <span className={cn(
-                      "text-[11px] font-black px-1.5 py-0.5 rounded",
-                      eveningDiff.type === 'shortage' ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"
-                    )}>
-                      {eveningDiff.type === 'shortage' ? 'عجز' : 'زيادة'}: {eveningDiff.amount} د.أ
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">👤</span>
+                      <span className="text-sm font-bold">أمجد شحادات</span>
+                    </div>
+                    <span className="text-xs font-black text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">
+                      كامل {totalDiffAmount.toFixed(2)} د.أ
                     </span>
-                  )}
+                  </button>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-gray-700 block">اسم الكاشير المسائي:</label>
-                  <select
-                    value={eveningDiff.cashierName || cashierName || ''}
-                    onChange={(e) => handleUpdateEvening('cashierName', e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-indigo-50/40 border border-indigo-300 rounded-lg text-xs font-bold text-gray-900 outline-none focus:ring-2 focus:ring-indigo-400"
-                  >
-                    <option value="">-- اختر كاشير المسائي --</option>
-                    <option value="أمجد شحادات">أمجد شحادات</option>
-                    <option value="قصي البدور">قصي البدور</option>
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[11px] font-bold text-gray-700 block">الحالة:</label>
-                    <select
-                      value={eveningDiff.type || 'exact'}
-                      onChange={(e) => handleUpdateEvening('type', e.target.value)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 outline-none focus:ring-2 focus:ring-indigo-400"
-                    >
-                      <option value="exact">مطابق (لا يوجد)</option>
-                      <option value="shortage">عجز (نقص)</option>
-                      <option value="surplus">زيادة</option>
-                    </select>
+                {/* بطاقة التوثيق الحالية */}
+                <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between flex-wrap gap-2 text-xs">
+                  <div className="flex items-center gap-1.5 text-emerald-950 font-bold">
+                    <span className="text-emerald-600">✅</span>
+                    <span>الكاشير المسجل حالياً: <strong className="text-emerald-900 font-black">{eveningDiff.cashierName || cashierName || 'يرجى الاختيار'}</strong></span>
                   </div>
-                  <div>
-                    <label className="text-[11px] font-bold text-gray-700 block">المبلغ (د.أ):</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={eveningDiff.amount || ''}
-                      onChange={(e) => handleUpdateEvening('amount', parseFloat(e.target.value) || 0)}
-                      placeholder="0.00"
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 text-center outline-none focus:ring-2 focus:ring-indigo-400"
-                    />
+                  <span className="font-extrabold text-emerald-800">
+                    المبلغ: {totalDiffAmount.toFixed(2)} د.أ ({totalDiffType === 'shortage' ? 'عجز' : 'زيادة'})
+                  </span>
+                </div>
+              </div>
+            ) : (
+              /* الوضع الثاني: تقسيم بين كاشيرين */
+              <div className="space-y-3">
+                {/* شريط الأدوات السريعة للتقسيم */}
+                <div className="flex items-center justify-between flex-wrap gap-2 bg-indigo-100/60 p-2 rounded-xl border border-indigo-200">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={handleSplitFiftyFifty}
+                      className="px-3 py-1 bg-white hover:bg-indigo-50 text-indigo-950 border border-indigo-300 rounded-lg text-xs font-black transition-all shadow-xs active:scale-95 cursor-pointer"
+                    >
+                      ⚡ تقسيم 50% / 50% بالتساوي
+                    </button>
+                    {shiftHandover && (
+                      <button
+                        type="button"
+                        onClick={syncFromHandover}
+                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer flex items-center gap-1"
+                      >
+                        <span>🔄 جلب من تسليم الشفت</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* شريط التحقق من مجموع التقسيم */}
+                  {(() => {
+                    const sum = Number(((morningDiff.amount || 0) + (eveningDiff.amount || 0)).toFixed(2));
+                    const diffRem = Number((totalDiffAmount - sum).toFixed(2));
+                    const isMatch = Math.abs(diffRem) < 0.01;
+                    return (
+                      <div className="flex items-center gap-2 text-xs">
+                        {isMatch ? (
+                          <span className="bg-emerald-100 text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded font-black flex items-center gap-1">
+                            <span>✔️</span>
+                            <span>المجموع موزع بالكامل ({sum.toFixed(2)} د.أ)</span>
+                          </span>
+                        ) : diffRem > 0 ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded font-bold">
+                              موزع ({sum.toFixed(2)}) — متبقي: {diffRem.toFixed(2)} د.أ
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handleAssignRemainderToC2}
+                              className="px-2 py-0.5 bg-amber-500 hover:bg-amber-600 text-white rounded text-[11px] font-bold cursor-pointer"
+                            >
+                              + وضع الباقي لكاشير 2
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="bg-rose-100 text-rose-900 border border-rose-300 px-2 py-0.5 rounded font-bold">
+                            ⚠️ المجموع الموزع أكبر من الفرق بـ {Math.abs(diffRem).toFixed(2)} د.أ
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* كروت الكاشيرين */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* كارت كاشير 1 */}
+                  <div className="p-3 bg-white border-2 border-amber-200 rounded-xl space-y-2 shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-amber-900 flex items-center gap-1">
+                        <span>👤</span>
+                        <span>كاشير 1</span>
+                      </span>
+                      {morningDiff.amount > 0 && (
+                        <span className={cn(
+                          "text-[11px] font-black px-1.5 py-0.5 rounded",
+                          morningDiff.type === 'shortage' ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"
+                        )}>
+                          {morningDiff.type === 'shortage' ? 'عجز' : 'زيادة'}: {morningDiff.amount} د.أ
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-gray-700 block">اسم الكاشير:</label>
+                      <select
+                        value={morningDiff.cashierName || ''}
+                        onChange={(e) => handleUpdateMorning('cashierName', e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-amber-50/40 border border-amber-300 rounded-lg text-xs font-bold text-gray-900 outline-none focus:ring-2 focus:ring-amber-400"
+                      >
+                        <option value="">-- اختر كاشير 1 --</option>
+                        <option value="قصي البدور">قصي البدور</option>
+                        <option value="أمجد شحادات">أمجد شحادات</option>
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[11px] font-bold text-gray-700 block">الحالة:</label>
+                        <select
+                          value={morningDiff.type || totalDiffType}
+                          onChange={(e) => handleUpdateMorning('type', e.target.value)}
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 outline-none focus:ring-2 focus:ring-amber-400"
+                        >
+                          <option value="shortage">عجز (نقص)</option>
+                          <option value="surplus">زيادة</option>
+                          <option value="exact">مطابق (0.00)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-gray-700 block">مبلغ النقص/الزيادة:</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={morningDiff.amount || ''}
+                          onChange={(e) => handleUpdateMorning('amount', parseFloat(e.target.value) || 0)}
+                          placeholder="0.00"
+                          className="w-full px-2 py-1.5 border-2 border-amber-300 rounded-lg text-xs font-black text-gray-900 text-center outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* كارت كاشير 2 */}
+                  <div className="p-3 bg-white border-2 border-indigo-200 rounded-xl space-y-2 shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-indigo-900 flex items-center gap-1">
+                        <span>👤</span>
+                        <span>كاشير 2</span>
+                      </span>
+                      {eveningDiff.amount > 0 && (
+                        <span className={cn(
+                          "text-[11px] font-black px-1.5 py-0.5 rounded",
+                          eveningDiff.type === 'shortage' ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"
+                        )}>
+                          {eveningDiff.type === 'shortage' ? 'عجز' : 'زيادة'}: {eveningDiff.amount} د.أ
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-gray-700 block">اسم الكاشير:</label>
+                      <select
+                        value={eveningDiff.cashierName || cashierName || ''}
+                        onChange={(e) => handleUpdateEvening('cashierName', e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-indigo-50/40 border border-indigo-300 rounded-lg text-xs font-bold text-gray-900 outline-none focus:ring-2 focus:ring-indigo-400"
+                      >
+                        <option value="">-- اختر كاشير 2 --</option>
+                        <option value="أمجد شحادات">أمجد شحادات</option>
+                        <option value="قصي البدور">قصي البدور</option>
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[11px] font-bold text-gray-700 block">الحالة:</label>
+                        <select
+                          value={eveningDiff.type || totalDiffType}
+                          onChange={(e) => handleUpdateEvening('type', e.target.value)}
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 outline-none focus:ring-2 focus:ring-indigo-400"
+                        >
+                          <option value="shortage">عجز (نقص)</option>
+                          <option value="surplus">زيادة</option>
+                          <option value="exact">مطابق (0.00)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-gray-700 block">مبلغ النقص/الزيادة:</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={eveningDiff.amount || ''}
+                          onChange={(e) => handleUpdateEvening('amount', parseFloat(e.target.value) || 0)}
+                          placeholder="0.00"
+                          className="w-full px-2 py-1.5 border-2 border-indigo-300 rounded-lg text-xs font-black text-gray-900 text-center outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
             <p className="text-[11px] text-gray-600 font-semibold text-center">
-              💡 يمكنك تسجيل عجز أو زيادة لأي من الشفتين أو كليهما، وسيتم ترحيل الفوارق بدقة إلى تقرير الكاشيرية لكل شفت على حدة.
+              💡 يتم حفظ وتوثيق مبالغ الفوارق باسم كل كاشير وترحيلها تلقائياً إلى تقرير الكاشيرية بدقة.
             </p>
           </div>
         )}

@@ -108,7 +108,7 @@ export const CashierDeficitModal = ({ isOpen, onClose }: { isOpen: boolean; onCl
           return;
         }
 
-        // 1. حساب تسليم / عجز الشفت الصباحي
+        // 1. حساب تسليم / عجز الشفت الصباحي أو كاشير 1
         if (docData.shiftDifferences?.morning && docData.shiftDifferences.morning.cashierName && (docData.shiftDifferences.morning.amount || 0) > 0.009) {
           const m = docData.shiftDifferences.morning;
           const mCashier = m.cashierName.trim();
@@ -119,12 +119,14 @@ export const CashierDeficitModal = ({ isOpen, onClose }: { isOpen: boolean; onCl
           }
           map[mCashier].shiftCount += 1;
 
+          const label = m.notes ? `${date} (${m.notes})` : `${date} (صباحي)`;
+
           if (m.type === 'shortage') {
             map[mCashier].totalShortage += mAmount;
-            map[mCashier].details.push({ date: `${date} (صباحي)`, amount: mAmount, type: 'shortage' });
+            map[mCashier].details.push({ date: label, amount: mAmount, type: 'shortage' });
           } else if (m.type === 'surplus') {
             map[mCashier].totalSurplus += mAmount;
-            map[mCashier].details.push({ date: `${date} (صباحي)`, amount: mAmount, type: 'surplus' });
+            map[mCashier].details.push({ date: label, amount: mAmount, type: 'surplus' });
           }
         } else if (docData.shiftHandover && docData.shiftHandover.morningCashier) {
           // التوافق مع بيانات تسليم الشفت السابقة
@@ -149,7 +151,7 @@ export const CashierDeficitModal = ({ isOpen, onClose }: { isOpen: boolean; onCl
           }
         }
 
-        // 2. حساب عجز / زيادة الشفت المسائي أو إغلاق اليوم
+        // 2. حساب عجز / زيادة الشفت المسائي أو كاشير 2 أو إغلاق اليوم
         if (docData.shiftDifferences?.evening && docData.shiftDifferences.evening.cashierName && (docData.shiftDifferences.evening.amount || 0) > 0.009) {
           const e = docData.shiftDifferences.evening;
           const eCashier = e.cashierName.trim();
@@ -160,12 +162,14 @@ export const CashierDeficitModal = ({ isOpen, onClose }: { isOpen: boolean; onCl
           }
           map[eCashier].shiftCount += 1;
 
+          const label = e.notes ? `${date} (${e.notes})` : `${date} (مسائي)`;
+
           if (e.type === 'shortage') {
             map[eCashier].totalShortage += eAmount;
-            map[eCashier].details.push({ date: `${date} (مسائي)`, amount: eAmount, type: 'shortage' });
+            map[eCashier].details.push({ date: label, amount: eAmount, type: 'shortage' });
           } else if (e.type === 'surplus') {
             map[eCashier].totalSurplus += eAmount;
-            map[eCashier].details.push({ date: `${date} (مسائي)`, amount: eAmount, type: 'surplus' });
+            map[eCashier].details.push({ date: label, amount: eAmount, type: 'surplus' });
           }
         } else {
           // التوافق مع الحساب المالي الإجمالي
