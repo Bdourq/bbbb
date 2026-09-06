@@ -65,7 +65,7 @@ export const CashDataSection = React.memo(() => {
         <table className="w-full text-xs sm:text-sm text-right border-collapse border border-gray-300">
           <tbody>
             <tr className="border-b border-gray-300">
-              <td className="px-2 py-1.5 bg-gray-50 border border-gray-300 font-bold text-gray-700 w-1/2 text-center">النقد الافتتاحي</td>
+              <td className="px-2 py-1.5 bg-gray-100 border border-gray-300 font-extrabold text-gray-900 w-1/2 text-center">النقد الافتتاحي</td>
               <td className="p-0 border border-gray-300">
                 <input
                   type="number"
@@ -75,7 +75,7 @@ export const CashDataSection = React.memo(() => {
                   onFocus={(e) => e.target.select()}
                   onWheel={(e) => e.currentTarget.blur()}
                   onChange={(e) => handleInputChange(['cashAndSales', 'openingCash'], Number(e.target.value))}
-                  className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg focus:text-indigo-900 transition-all duration-150"
+                  className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center font-extrabold text-slate-950 focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg focus:text-indigo-900 transition-all duration-150"
                   dir="ltr" placeholder="0"
                 />
               </td>

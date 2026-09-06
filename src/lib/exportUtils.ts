@@ -120,8 +120,8 @@ export const exportToExcel = (data: ShiftData, calc: any) => {
       'م': index + 1,
       'اسم الموظف': emp.employeeName || '-',
       'الحالة': isOff ? 'OFF (لم يحضر)' : 'حاضر',
-      'وقت الدخول': emp.startTime || '-',
-      'وقت الخروج': emp.endTime || '-',
+      'وقت الدخول': emp.startTime ? `${emp.startTime} ${parseInt(emp.startTime.split(':')[0], 10) >= 12 ? 'م' : 'ص'}` : '-',
+      'وقت الخروج': emp.endTime ? `${emp.endTime} ${parseInt(emp.endTime.split(':')[0], 10) >= 12 ? 'م' : 'ص'}` : '-',
       'أجر الساعة': emp.hourlyRate || 0,
       'الأجر اليومي': dailyWage,
       'قيمة السلفة': emp.amount || 0,
@@ -201,58 +201,94 @@ export const exportToPdf = async (date: string) => {
 };
 
 export const exportToImage = async (date: string) => {
-  const element = document.getElementById('report-content');
-  if (!element) return;
-  
+  const mainElement = document.getElementById('cash-report-content');
+  const employeeElement = document.getElementById('employeeAdvances');
+  if (!mainElement) return;
+
+  const dayOfWeekIndex = new Date(date).getDay();
+  const weekdaysMap: Record<number, string> = {
+    5: 'الجمعة',
+    6: 'السبت',
+    0: 'الأحد',
+    1: 'الاثنين',
+    2: 'الثلاثاء',
+    3: 'الأربعاء',
+    4: 'الخميس'
+  };
+  const dayLabel = weekdaysMap[dayOfWeekIndex] || 'اليوم';
+
+  const filter = (node: HTMLElement) => {
+    // Exclude elements with data-html2canvas-ignore or print:hidden
+    if (node?.hasAttribute && node.hasAttribute('data-html2canvas-ignore')) {
+      return false;
+    }
+    if (node?.classList && typeof node.classList.contains === 'function') {
+      if (node.classList.contains('print:hidden')) return false;
+      // Exclude toast notifications and loading bars
+      if (
+        node.classList.contains('toaster') ||
+        node.classList.contains('go2369182101') ||
+        node.classList.contains('go3838421869') ||
+        node.classList.contains('toast')
+      ) {
+        return false;
+      }
+    }
+    if (node?.id && (node.id === 'toast-container' || node.id.includes('toast'))) {
+      return false;
+    }
+    return true;
+  };
+
   try {
-    element.classList.add('export-mode');
-    
-    // Allow browser to apply styles before rendering
+    // 1. Export Main Cash & Inventory Tables Image (High Clarity)
+    mainElement.classList.add('export-mode');
     await new Promise(resolve => setTimeout(resolve, 250));
 
-    const filter = (node: HTMLElement) => {
-      // Exclude elements with data-html2canvas-ignore or print:hidden
-      if (node?.hasAttribute && node.hasAttribute('data-html2canvas-ignore')) {
-        return false;
-      }
-      if (node?.classList && typeof node.classList.contains === 'function' && node.classList.contains('print:hidden')) {
-        return false;
-      }
-      return true;
-    };
-
-    const dataUrl = await toPng(element, {
+    const mainDataUrl = await toPng(mainElement, {
       pixelRatio: 3,
-      backgroundColor: '#ffffff',
+      backgroundColor: '#f9fafb',
       filter: filter,
       style: {
         transform: 'scale(1)',
         transformOrigin: 'top left'
       }
     });
-    
-    const dayOfWeekIndex = new Date(date).getDay();
-    const weekdaysMap: Record<number, string> = {
-      5: 'الجمعة',
-      6: 'السبت',
-      0: 'الأحد',
-      1: 'الاثنين',
-      2: 'الثلاثاء',
-      3: 'الأربعاء',
-      4: 'الخميس'
-    };
-    const dayLabel = weekdaysMap[dayOfWeekIndex] || 'اليوم';
 
-    const link = document.createElement('a');
-    link.download = `تقرير_الجرد_${dayLabel}_${date}.png`;
-    link.href = dataUrl;
-    link.click();
-    
-    element.classList.remove('export-mode');
+    const link1 = document.createElement('a');
+    link1.download = `تقرير_الجرد_${dayLabel}_${date}.png`;
+    link1.href = mainDataUrl;
+    link1.click();
+
+    mainElement.classList.remove('export-mode');
+
+    // 2. Export Employee Advances Table Image separately (High Clarity)
+    if (employeeElement) {
+      await new Promise(resolve => setTimeout(resolve, 400));
+      employeeElement.classList.add('export-mode');
+      await new Promise(resolve => setTimeout(resolve, 250));
+
+      const employeeDataUrl = await toPng(employeeElement, {
+        pixelRatio: 3,
+        backgroundColor: '#ffffff',
+        filter: filter,
+        style: {
+          transform: 'scale(1)',
+          transformOrigin: 'top left'
+        }
+      });
+
+      const link2 = document.createElement('a');
+      link2.download = `تقرير_جدول_الموظفين_${dayLabel}_${date}.png`;
+      link2.href = employeeDataUrl;
+      link2.click();
+
+      employeeElement.classList.remove('export-mode');
+    }
   } catch (error) {
-    const element = document.getElementById('report-content');
-    if (element) element.classList.remove('export-mode');
-    console.error('Error exporting image:', error);
+    if (mainElement) mainElement.classList.remove('export-mode');
+    if (employeeElement) employeeElement.classList.remove('export-mode');
+    console.error('Error exporting images:', error);
     throw error;
   }
 };

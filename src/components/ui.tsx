@@ -195,17 +195,17 @@ export const DynamicList = ({
           </datalist>
         )}
         <table className="w-full text-xs sm:text-sm text-right border-collapse border border-gray-300">
-          <thead className="bg-gray-50 border-b border-gray-300">
+          <thead className="bg-gray-100 border-b border-gray-300">
             <tr>
               {!hideLabel ? (
                 <>
-                  <th className="px-2 py-1.5 font-bold text-gray-700 w-1/2 border border-gray-300 text-center">البيان</th>
-                  <th className="px-2 py-1.5 font-bold text-gray-700 w-1/2 border border-gray-300 text-center">المبلغ</th>
+                  <th className="px-2 py-1.5 font-extrabold text-gray-900 w-1/2 border border-gray-300 text-center">البيان</th>
+                  <th className="px-2 py-1.5 font-extrabold text-gray-900 w-1/2 border border-gray-300 text-center">المبلغ</th>
                 </>
               ) : (
                 <>
-                  <th className="px-1 py-1.5 font-bold text-gray-700 w-10 border border-gray-300 text-center">م</th>
-                  <th className="px-2 py-1.5 font-bold text-gray-700 border border-gray-300 text-center">المبلغ</th>
+                  <th className="px-1 py-1.5 font-extrabold text-gray-900 w-10 border border-gray-300 text-center">م</th>
+                  <th className="px-2 py-1.5 font-extrabold text-gray-900 border border-gray-300 text-center">المبلغ</th>
                 </>
               )}
               <th className="px-1 py-1 w-8 border border-gray-300 print:hidden"></th>
@@ -214,12 +214,12 @@ export const DynamicList = ({
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={hideLabel ? 3 : 3} className="py-3 text-center text-gray-400 text-xs border border-gray-300">
+                <td colSpan={hideLabel ? 3 : 3} className="py-3 text-center text-gray-500 font-medium text-xs border border-gray-300">
                   <span>لا توجد بنود مضافة</span>
                   <button
                     type="button"
                     onClick={() => addLineItem(listKey)}
-                    className="mr-2 text-blue-600 hover:underline font-medium print:hidden cursor-pointer"
+                    className="mr-2 text-blue-600 hover:underline font-bold print:hidden cursor-pointer"
                   >
                     + إضافة بند
                   </button>
@@ -256,7 +256,7 @@ export const DynamicList = ({
                             }
                           }}
                           className={cn(
-                            "w-full h-full px-2 py-1.5 bg-transparent outline-none text-center focus:bg-amber-50/80 focus:font-bold focus:text-base transition-all duration-150",
+                            "w-full h-full px-2 py-1.5 bg-transparent outline-none text-center font-bold text-gray-900 focus:bg-amber-50/80 focus:font-black focus:text-base transition-all duration-150",
                             isItemMissingLabel && "border-2 border-rose-400 bg-rose-100/50 placeholder:text-rose-500 font-bold"
                           )}
                           placeholder={isItemMissingLabel ? "⚠️ البيان مطلوب!" : "البيان"}
@@ -264,7 +264,7 @@ export const DynamicList = ({
                         />
                       </td>
                     ) : (
-                      <td className="px-1 py-1.5 bg-gray-50 font-bold text-gray-600 border border-gray-300 text-center w-10">
+                      <td className="px-1 py-1.5 bg-gray-100 font-extrabold text-gray-800 border border-gray-300 text-center w-10">
                         {index + 1}
                       </td>
                     )}
@@ -303,7 +303,7 @@ export const DynamicList = ({
                             addLineItem(listKey);
                           }
                         }}
-                        className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg focus:text-indigo-900 transition-all duration-150"
+                        className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center font-extrabold text-slate-950 focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg focus:text-indigo-900 transition-all duration-150"
                         placeholder="0"
                         dir="ltr"
                       />
@@ -320,9 +320,9 @@ export const DynamicList = ({
                 );
               })
             )}
-            <tr className="bg-gray-100 font-bold border-t border-gray-300">
-              <td className="px-2 py-1.5 border border-gray-300 text-center text-gray-800" colSpan={hideLabel ? 1 : 1}>الإجمالي</td>
-              <td className="px-2 py-1.5 border border-gray-300 text-center text-gray-900 font-black" dir="ltr">{total.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</td>
+            <tr className="bg-gray-100 font-extrabold border-t border-gray-300">
+              <td className="px-2 py-1.5 border border-gray-300 text-center text-gray-900 font-extrabold" colSpan={hideLabel ? 1 : 1}>الإجمالي</td>
+              <td className="px-2 py-1.5 border border-gray-300 text-center text-slate-950 font-black text-xs sm:text-sm" dir="ltr">{total.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</td>
               <td className="border border-gray-300 print:hidden"></td>
             </tr>
           </tbody>
