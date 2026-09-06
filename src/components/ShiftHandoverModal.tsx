@@ -68,7 +68,19 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
       timestamp: new Date().toISOString()
     };
 
+    const mType = handoverDifference < -0.009 ? 'shortage' : handoverDifference > 0.009 ? 'surplus' : 'exact';
+    const mAmount = Number(Math.abs(handoverDifference).toFixed(2));
+
     updateData(['shiftHandover'], handoverObj);
+    updateData(['shiftDifferences', 'morning'], {
+      cashierName: morningCashier || '',
+      type: mType,
+      amount: mAmount,
+      notes: 'تسليم شفت صباحي'
+    });
+    if (eveningCashier) {
+      updateData(['shiftDifferences', 'evening', 'cashierName'], eveningCashier);
+    }
     updateData(['cashAndSales', 'sales'], sales);
     updateData(['actualInventory', 'rt'], rt);
     updateData(['actualInventory', 'visa'], visa);

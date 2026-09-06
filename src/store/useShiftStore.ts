@@ -18,6 +18,18 @@ export type CustodyItem = {
   notes?: string;
 };
 
+export type ShiftDifferenceDetail = {
+  cashierName: string;
+  type: 'shortage' | 'surplus' | 'exact';
+  amount: number;
+  notes?: string;
+};
+
+export type ShiftDifferencesData = {
+  morning?: ShiftDifferenceDetail;
+  evening?: ShiftDifferenceDetail;
+};
+
 export type ShiftHandoverData = {
   morningCashier: string;
   eveningCashier: string;
@@ -33,6 +45,7 @@ export type ShiftData = {
   date: string;
   cashierName: string;
   shiftHandover?: ShiftHandoverData;
+  shiftDifferences?: ShiftDifferencesData;
   custodyItems: CustodyItem[];
   purchases: LineItem[];
   addMerchantReceivables: LineItem[];
@@ -116,6 +129,10 @@ const defaultState: ShiftData = {
   isClosed: false,
   date: TODAY_DATE,
   cashierName: '',
+  shiftDifferences: {
+    morning: { cashierName: '', type: 'exact', amount: 0, notes: '' },
+    evening: { cashierName: '', type: 'exact', amount: 0, notes: '' },
+  },
   custodyItems: [],
   purchases: [],
   addMerchantReceivables: [],
@@ -287,13 +304,12 @@ export const useShiftStore = create<StoreState>((set, get) => ({
       let totalShortage = 0;
       snapshot.forEach(doc => {
         const docData = doc.data() as ShiftData;
-        if (docData.cashierName === cashierName && docData.date.startsWith(monthPrefix)) {
-          const totalInventory = (docData.actualInventory.actualCash || 0) + (docData.actualInventory.visa || 0) + (docData.actualInventory.rt || 0) + (docData.actualInventory.maestro || 0) + (docData.actualInventory.priceDifference || 0) + (docData.actualInventory.advances || 0) + ((docData.ewallet || []).reduce((sum, item) => sum + (item.amount || 0), 0)) +
+        if (docData.cashierName === cashierName && docData.date.startsWith(monthPrefix) && docData.date >= '2026-09-05') {
+          const totalInventory = (docData.actualInventory?.actualCash || 0) + (docData.actualInventory?.visa || 0) + (docData.actualInventory?.rt || 0) + (docData.actualInventory?.maestro || 0) + (docData.actualInventory?.priceDifference || 0) + (docData.actualInventory?.advances || 0) + ((docData.ewallet || []).reduce((sum, item) => sum + (item.amount || 0), 0)) +
             (docData.purchases || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
             (docData.otherExpenses || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
             (docData.abuAbdullah || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
             (docData.equipment || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
-            (docData.addMerchantReceivables || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
             (docData.apartment || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
             (docData.adminExpenses || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
             (docData.ewallet || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
@@ -312,7 +328,7 @@ export const useShiftStore = create<StoreState>((set, get) => ({
 
           const totalExpectedCash = (cashInfo?.openingCash || 0) + (cashInfo?.sales || 0) + (cashInfo?.otherSales || 0) + newReceivablesTotal - addedReceivablesTotal;
           const shortage = totalExpectedCash - totalInventory;
-          if (shortage > 0) {
+          if (shortage > 0.01) {
             totalShortage += shortage;
           }
         }

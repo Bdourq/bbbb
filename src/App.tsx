@@ -242,8 +242,6 @@ function App() {
     return <div className="min-h-screen flex items-center justify-center text-gray-500">جاري التحميل...</div>;
   }
 
-  const cashierError = errors['cashierName'];
-
   return (
     <div className="min-h-screen bg-gray-50/50 font-sans text-gray-900" dir="rtl" id="report-content">
       <Toaster position="top-center" reverseOrder={false} />
@@ -285,10 +283,13 @@ function App() {
                 setShowDeficitModal(true);
                 setIsSidebarOpen(false);
               }}
-              className="w-full flex items-center gap-2 p-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold border border-rose-200 transition-colors text-sm cursor-pointer"
+              className="w-full flex items-center justify-between p-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 font-bold border border-rose-200 transition-colors text-sm cursor-pointer"
             >
-              <ShieldAlert size={18} />
-              <span>عجز الكاش (تقرير الكشيرية)</span>
+              <div className="flex items-center gap-2">
+                <ShieldAlert size={18} />
+                <span>تقرير الكاشيرية (عجز وزيادة)</span>
+              </div>
+              <span className="text-[11px] bg-rose-200/80 text-rose-900 px-2 py-0.5 rounded-full font-black">من 5/9</span>
             </button>
             <button
               onClick={() => {

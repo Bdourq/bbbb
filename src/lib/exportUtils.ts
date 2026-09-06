@@ -18,7 +18,7 @@ export const exportToExcel = (data: ShiftData, calc: any) => {
   const summaryData = [
     { 'البيان': 'تقرير إغلاق الكاش اليومي - مطعم يحيى البيك', 'القيمة': '' },
     { 'البيان': 'تاريخ الإغلاق', 'القيمة': data.date },
-    { 'البيان': 'اسم الكاشير', 'القيمة': data.cashierName || '-' },
+    { 'البيان': 'اسم الكاشير', 'القيمة': (calc.cashShortage > 0 || calc.cashSurplus > 0) ? (data.cashierName || 'غير محدد') : 'مطابق (لا يلزم كاشير)' },
     { 'البيان': 'حالة الشفت', 'القيمة': data.isClosed ? 'مغلق' : 'مفتوح' },
     { 'البيان': '', 'القيمة': '' },
     { 'البيان': '--- ملخص الجرد الفعلي (الأولوية القصوى) ---', 'القيمة': '' },
@@ -41,16 +41,24 @@ export const exportToExcel = (data: ShiftData, calc: any) => {
     { 'البيان': '', 'القيمة': '' },
     { 'البيان': '--- النتيجة النهائية ---', 'القيمة': '' },
     { 
-      'البيان': 'نقص الكاش' + (calc.cashShortage > 0 && data.cashierName ? ` (${data.cashierName})` : ''), 
+      'البيان': 'نقص الكاش الإجمالي' + (calc.cashShortage > 0 && data.cashierName ? ` (${data.cashierName})` : ''), 
       'القيمة': calc.cashShortage ? -calc.cashShortage : 0 
     },
     { 
-      'البيان': 'زيادة الكاش' + (calc.cashSurplus > 0 && data.cashierName ? ` (${data.cashierName})` : ''), 
+      'البيان': 'زيادة الكاش الإجمالي' + (calc.cashSurplus > 0 && data.cashierName ? ` (${data.cashierName})` : ''), 
       'القيمة': calc.cashSurplus 
     },
+    ...(data.shiftDifferences?.morning && (data.shiftDifferences.morning.amount || 0) > 0 ? [{
+      'البيان': `فارق الشفت الصباحي (${data.shiftDifferences.morning.cashierName || 'صباحي'}) - ${data.shiftDifferences.morning.type === 'shortage' ? 'عجز' : 'زيادة'}`,
+      'القيمة': data.shiftDifferences.morning.type === 'shortage' ? -data.shiftDifferences.morning.amount : data.shiftDifferences.morning.amount
+    }] : []),
+    ...(data.shiftDifferences?.evening && (data.shiftDifferences.evening.amount || 0) > 0 ? [{
+      'البيان': `فارق الشفت المسائي (${data.shiftDifferences.evening.cashierName || 'مسائي'}) - ${data.shiftDifferences.evening.type === 'shortage' ? 'عجز' : 'زيادة'}`,
+      'القيمة': data.shiftDifferences.evening.type === 'shortage' ? -data.shiftDifferences.evening.amount : data.shiftDifferences.evening.amount
+    }] : []),
     { 'البيان': '', 'القيمة': '' },
     { 'البيان': '--- توقيع وتذييل التقرير ---', 'القيمة': '' },
-    { 'البيان': 'الكاشير المسؤول', 'القيمة': data.cashierName || '-' },
+    { 'البيان': 'الكاشير المسؤول', 'القيمة': (calc.cashShortage > 0 || calc.cashSurplus > 0) ? (data.cashierName || 'غير محدد') : 'مطابق' },
     { 'البيان': 'تاريخ التقرير', 'القيمة': data.date }
   ];
   const wsSummary = xlsx.utils.json_to_sheet(summaryData);
