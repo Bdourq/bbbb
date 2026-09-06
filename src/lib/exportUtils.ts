@@ -1,154 +1,8 @@
-import * as xlsx from 'xlsx';
+import ExcelJS from 'exceljs';
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 import { ShiftData } from '../store/useShiftStore';
-
-export const exportToExcel = (data: ShiftData, calc: any) => {
-  const wb = xlsx.utils.book_new();
-
-  const addedReceivablesTotal = data.addCashReceivables 
-    ? data.addCashReceivables.reduce((sum, item) => sum + (item.amount || 0), 0)
-    : (data.cashAndSales.paidOldReceivables || 0);
-
-  const newReceivablesTotal = data.addNewReceivables
-    ? data.addNewReceivables.reduce((sum, item) => sum + (item.amount || 0), 0)
-    : (data.cashAndSales.addedReceivables || 0);
-
-  // 1. Summary Sheet (ملخص الجرد المالي)
-  const summaryData = [
-    { 'البيان': 'تقرير إغلاق الكاش اليومي - مطعم يحيى البيك', 'القيمة': '' },
-    { 'البيان': 'تاريخ الإغلاق', 'القيمة': data.date },
-    { 'البيان': 'اسم الكاشير', 'القيمة': (calc.cashShortage > 0 || calc.cashSurplus > 0) ? (data.cashierName || 'غير محدد') : 'مطابق (لا يلزم كاشير)' },
-    { 'البيان': 'حالة الشفت', 'القيمة': data.isClosed ? 'مغلق' : 'مفتوح' },
-    { 'البيان': '', 'القيمة': '' },
-    { 'البيان': '--- ملخص الجرد الفعلي (الأولوية القصوى) ---', 'القيمة': '' },
-    { 'البيان': 'نقد (الكاش الفعلي)', 'القيمة': data.actualInventory.actualCash },
-    { 'البيان': 'فيزا', 'القيمة': data.actualInventory.visa },
-    { 'البيان': 'Rt', 'القيمة': data.actualInventory.rt },
-    { 'البيان': 'مايسترو', 'القيمة': data.actualInventory.maestro },
-    { 'البيان': 'فرق سعر', 'القيمة': data.actualInventory.priceDifference },
-    { 'البيان': 'سلف', 'القيمة': data.actualInventory.advances },
-    { 'البيان': 'المحفظة', 'القيمة': data.actualInventory.wallet },
-    { 'البيان': 'مجموع الجرد الفعلي', 'القيمة': calc.totalInventory },
-    { 'البيان': '', 'القيمة': '' },
-    { 'البيان': '--- حركة الكاش والمبيعات ---', 'القيمة': '' },
-    { 'البيان': 'النقد الافتتاحي', 'القيمة': data.cashAndSales.openingCash },
-    { 'البيان': 'سداد ذمم قديمة', 'القيمة': addedReceivablesTotal },
-    { 'البيان': 'إضافة ذمم جديدة', 'القيمة': newReceivablesTotal },
-    { 'البيان': 'مبيعات', 'القيمة': data.cashAndSales.sales },
-    { 'البيان': 'مبيعات أخرى', 'القيمة': data.cashAndSales.otherSales },
-    { 'البيان': 'مجموع الكاش المتوفر', 'القيمة': calc.totalCash },
-    { 'البيان': '', 'القيمة': '' },
-    { 'البيان': '--- النتيجة النهائية ---', 'القيمة': '' },
-    { 
-      'البيان': 'نقص الكاش الإجمالي' + (calc.cashShortage > 0 && data.cashierName ? ` (${data.cashierName})` : ''), 
-      'القيمة': calc.cashShortage ? -calc.cashShortage : 0 
-    },
-    { 
-      'البيان': 'زيادة الكاش الإجمالي' + (calc.cashSurplus > 0 && data.cashierName ? ` (${data.cashierName})` : ''), 
-      'القيمة': calc.cashSurplus 
-    },
-    ...(data.shiftDifferences?.morning && (data.shiftDifferences.morning.amount || 0) > 0 ? [{
-      'البيان': `فارق الشفت الصباحي (${data.shiftDifferences.morning.cashierName || 'صباحي'}) - ${data.shiftDifferences.morning.type === 'shortage' ? 'عجز' : 'زيادة'}`,
-      'القيمة': data.shiftDifferences.morning.type === 'shortage' ? -data.shiftDifferences.morning.amount : data.shiftDifferences.morning.amount
-    }] : []),
-    ...(data.shiftDifferences?.evening && (data.shiftDifferences.evening.amount || 0) > 0 ? [{
-      'البيان': `فارق الشفت المسائي (${data.shiftDifferences.evening.cashierName || 'مسائي'}) - ${data.shiftDifferences.evening.type === 'shortage' ? 'عجز' : 'زيادة'}`,
-      'القيمة': data.shiftDifferences.evening.type === 'shortage' ? -data.shiftDifferences.evening.amount : data.shiftDifferences.evening.amount
-    }] : []),
-    { 'البيان': '', 'القيمة': '' },
-    { 'البيان': '--- توقيع وتذييل التقرير ---', 'القيمة': '' },
-    { 'البيان': 'الكاشير المسؤول', 'القيمة': (calc.cashShortage > 0 || calc.cashSurplus > 0) ? (data.cashierName || 'غير محدد') : 'مطابق' },
-    { 'البيان': 'تاريخ التقرير', 'القيمة': data.date }
-  ];
-  const wsSummary = xlsx.utils.json_to_sheet(summaryData);
-  wsSummary['!dir'] = 'rtl';
-  xlsx.utils.book_append_sheet(wb, wsSummary, "ملخص الجرد الإغلاق");
-
-  // 2. Detailed Expenses & Receivables Sheet (المصاريف والذمم مرتبة حسب الأولوية)
-  const flattenList = (list: any[], categoryName: string) => 
-    list
-      .filter(item => (item.label && item.label.trim()) || (Number(item.amount) !== 0))
-      .map(item => ({ 'التصنيف': categoryName, 'البيان': item.label || (categoryName === 'المحفظة الإلكترونية' ? 'حركة محفظة' : '-'), 'المبلغ': item.amount || 0 }));
-
-  const rawExpensesData = [
-    ...flattenList(data.addCashReceivables || [], 'إضافة ذمم (للكاش)'),
-    ...flattenList(data.purchases, 'مشتريات'),
-    ...flattenList(data.otherExpenses, 'مصاريف أخرى'),
-    ...flattenList(data.abuAbdullah, 'أبو عبدالله'),
-    ...flattenList(data.equipment, 'معدات وصيانة'),
-    ...flattenList(data.addMerchantReceivables, 'إضافة ذمم تجار'),
-    ...flattenList(data.apartment, 'الشقة'),
-    ...flattenList(data.adminExpenses, 'مصاريف إدارية'),
-    ...flattenList(data.ewallet, 'المحفظة الإلكترونية'),
-    ...flattenList(data.payMerchantReceivables, 'سداد ذمم تجار'),
-    ...flattenList(data.yahya, 'يحيى'),
-    ...flattenList(data.spices, 'بهارات'),
-  ];
-
-  // Sort by priority (items with non-zero amounts first)
-  const expensesData = rawExpensesData.sort((a, b) => Number(b.المبلغ) - Number(a.المبلغ));
-  if (expensesData.length > 0) {
-    const wsExpenses = xlsx.utils.json_to_sheet(expensesData);
-    wsExpenses['!dir'] = 'rtl';
-    xlsx.utils.book_append_sheet(wb, wsExpenses, "المصاريف والذمم");
-  }
-
-  // 3. Kitchen & Production Sheet (استهلاك المطبخ والإنتاج)
-  const kitchenData = [
-    { 'التصنيف': 'استهلاك المطبخ', 'البيان': 'سيخ 1', 'الكمية/القيمة': data.kitchenConsumption.skewer1 },
-    { 'التصنيف': 'استهلاك المطبخ', 'البيان': 'سيخ 2', 'الكمية/القيمة': data.kitchenConsumption.skewer2 },
-    { 'التصنيف': 'استهلاك المطبخ', 'البيان': 'تزويد', 'الكمية/القيمة': data.kitchenConsumption.supply },
-    { 'التصنيف': 'استهلاك المطبخ', 'البيان': 'مرتجع', 'الكمية/القيمة': data.kitchenConsumption.return },
-    { 'التصنيف': 'استهلاك المطبخ', 'البيان': 'استهلاك رز', 'الكمية/القيمة': data.kitchenConsumption.rice },
-    { 'التصنيف': 'استهلاك المطبخ', 'البيان': 'استهلاك لوز', 'الكمية/القيمة': data.kitchenConsumption.almond },
-    { 'التصنيف': 'استهلاك المطبخ', 'البيان': 'استهلاك بطاطا', 'الكمية/القيمة': data.kitchenConsumption.potato },
-    { 'التصنيف': 'جرد الإنتاج', 'البيان': 'بروستد', 'الكمية/القيمة': data.productionInventory.broasted },
-    { 'التصنيف': 'جرد الإنتاج', 'البيان': 'تكا', 'الكمية/القيمة': data.productionInventory.tikka },
-    { 'التصنيف': 'جرد الإنتاج', 'البيان': 'زنجر', 'الكمية/القيمة': data.productionInventory.zinger },
-  ];
-  const wsKitchen = xlsx.utils.json_to_sheet(kitchenData);
-  wsKitchen['!dir'] = 'rtl';
-  xlsx.utils.book_append_sheet(wb, wsKitchen, "المطبخ والإنتاج");
-
-  // 4. Employees Attendance & Advances Sheet (حضور وسلف الموظفين)
-  const advancesData = data.employeeAdvances.map((emp, index) => {
-    let dailyWage = 0;
-    if (emp.startTime && emp.endTime && emp.hourlyRate) {
-      const [sh, sm] = emp.startTime.split(':').map(Number);
-      const [eh, em] = emp.endTime.split(':').map(Number);
-      let hours = (eh + em / 60) - (sh + sm / 60);
-      if (hours < 0) hours += 24;
-      dailyWage = Number((hours * emp.hourlyRate).toFixed(2));
-    }
-
-    const isOff = emp.employeeName.trim() && !emp.startTime && !emp.endTime;
-
-    return {
-      'م': index + 1,
-      'اسم الموظف': emp.employeeName || '-',
-      'الحالة': isOff ? 'OFF (لم يحضر)' : 'حاضر',
-      'وقت الدخول': emp.startTime || '-',
-      'وقت الخروج': emp.endTime || '-',
-      'أجر الساعة': emp.hourlyRate || 0,
-      'الأجر اليومي': dailyWage,
-      'قيمة السلفة': emp.amount || 0,
-      'ملاحظات': emp.notes || ''
-    };
-  });
-  if (advancesData.length > 0) {
-    const wsAdvances = xlsx.utils.json_to_sheet(advancesData);
-    wsAdvances['!dir'] = 'rtl';
-    xlsx.utils.book_append_sheet(wb, wsAdvances, "حضور وسلف الموظفين");
-  }
-
-  // Save File
-  xlsx.writeFile(wb, `تقرير_إغلاق_الكاش_${data.date}.xlsx`);
-};
-
-export const printDocument = () => {
-  window.print();
-};
+import restaurantLogo from '../assets/logo.jpeg';
 
 export const getDayLabel = (dateStr: string): string => {
   try {
@@ -169,104 +23,47 @@ export const getDayLabel = (dateStr: string): string => {
   }
 };
 
-export const exportToPdf = async (date: string) => {
-  const dayLabel = getDayLabel(date);
-  const cashElement = document.getElementById('cash-report-export') || document.getElementById('report-content');
-  const empElement = document.getElementById('employee-report-export');
-  if (!cashElement) return;
+import { loadClosingReportTemplateBuffer, populateClosingReport } from './excelTemplate';
 
-  try {
-    const filter = (node: HTMLElement) => {
-      if (node?.hasAttribute && node.hasAttribute('data-html2canvas-ignore')) return false;
-      if (node?.classList && typeof node.classList.contains === 'function' && node.classList.contains('print:hidden')) return false;
-      return true;
-    };
+export const exportToExcel = async (data: ShiftData, calc: any) => {
+  // 1. Load the original template file (public/templates/closing-report-template.xlsx)
+  const templateBuffer = await loadClosingReportTemplateBuffer();
 
-    cashElement.classList.add('export-mode');
-    await new Promise(resolve => setTimeout(resolve, 200));
+  // 2. Populate values into the exact template cells preserving all layout and styling
+  const { buffer } = await populateClosingReport(templateBuffer, data, calc);
 
-    const cashDataUrl = await toPng(cashElement, {
-      pixelRatio: 2,
-      backgroundColor: '#ffffff',
-      filter: filter,
-    });
+  // 3. Download the populated template file with standard naming convention
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `تقرير_إغلاق_الكاش_${data.date}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+};
 
-    cashElement.classList.remove('export-mode');
-
-    // Create jsPDF instance in A4 Landscape orientation (297mm x 210mm)
-    const pdf = new jsPDF({
-      orientation: 'landscape',
-      unit: 'mm',
-      format: 'a4',
-    });
-
-    const pdfWidth = pdf.internal.pageSize.getWidth(); // 297mm
-    const pdfHeight = pdf.internal.pageSize.getHeight(); // 210mm
-    const margin = 6;
-    const imgWidth = pdfWidth - (margin * 2); // 285mm
-
-    const cashImgProps = pdf.getImageProperties(cashDataUrl);
-    const cashImgHeight = (cashImgProps.height * imgWidth) / cashImgProps.width;
-
-    let heightLeft = cashImgHeight;
-    let position = margin;
-
-    pdf.addImage(cashDataUrl, 'PNG', margin, position, imgWidth, cashImgHeight);
-    heightLeft -= (pdfHeight - (margin * 2));
-
-    while (heightLeft > 0) {
-      position = heightLeft - cashImgHeight + margin;
-      pdf.addPage();
-      pdf.addImage(cashDataUrl, 'PNG', margin, position, imgWidth, cashImgHeight);
-      heightLeft -= (pdfHeight - (margin * 2));
-    }
-
-    // Capture employee advances section if present
-    if (empElement) {
-      empElement.classList.add('export-mode');
-      await new Promise(resolve => setTimeout(resolve, 200));
-
-      const empDataUrl = await toPng(empElement, {
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-        filter: filter,
-      });
-
-      empElement.classList.remove('export-mode');
-
-      const empImgProps = pdf.getImageProperties(empDataUrl);
-      const empImgHeight = (empImgProps.height * imgWidth) / empImgProps.width;
-
-      pdf.addPage();
-      pdf.addImage(empDataUrl, 'PNG', margin, margin, imgWidth, empImgHeight);
-    }
-
-    pdf.save(`تقرير_إغلاق_${dayLabel}_${date}.pdf`);
-  } catch (error) {
-    const cashEl = document.getElementById('cash-report-export');
-    if (cashEl) cashEl.classList.remove('export-mode');
-    const empEl = document.getElementById('employee-report-export');
-    if (empEl) empEl.classList.remove('export-mode');
-    console.error('Error exporting PDF:', error);
-    window.print();
-  }
+export const printDocument = () => {
+  window.print();
 };
 
 export type ExportImageTarget = 'both' | 'cash' | 'employees';
 
+const EXPORT_FILTER = (node: HTMLElement) => {
+  if (node?.hasAttribute && node.hasAttribute('data-html2canvas-ignore')) {
+    return false;
+  }
+  if (node?.classList && typeof node.classList.contains === 'function') {
+    if (node.classList.contains('print:hidden') || node.classList.contains('no-print')) {
+      return false;
+    }
+  }
+  return true;
+};
+
 export const exportToImage = async (date: string, target: ExportImageTarget = 'both') => {
   const dayLabel = getDayLabel(date);
-
-  const filter = (node: HTMLElement) => {
-    // Exclude elements with data-html2canvas-ignore or print:hidden
-    if (node?.hasAttribute && node.hasAttribute('data-html2canvas-ignore')) {
-      return false;
-    }
-    if (node?.classList && typeof node.classList.contains === 'function' && node.classList.contains('print:hidden')) {
-      return false;
-    }
-    return true;
-  };
 
   const captureElement = async (elementId: string, fallbackId: string, filename: string) => {
     const element = document.getElementById(elementId) || document.getElementById(fallbackId);
@@ -277,17 +74,18 @@ export const exportToImage = async (date: string, target: ExportImageTarget = 'b
 
     try {
       element.classList.add('export-mode');
-      // Allow browser to apply styles before rendering
-      await new Promise(resolve => setTimeout(resolve, 250));
+      await new Promise(resolve => setTimeout(resolve, 300));
 
+      // High-resolution 300 DPI capture
       const dataUrl = await toPng(element, {
-        pixelRatio: 2.5,
+        pixelRatio: 3,
         backgroundColor: '#ffffff',
-        filter: filter,
+        filter: EXPORT_FILTER,
         style: {
           transform: 'scale(1)',
           transformOrigin: 'top left',
-          margin: '0'
+          margin: '0',
+          boxSizing: 'border-box'
         }
       });
 
@@ -306,20 +104,228 @@ export const exportToImage = async (date: string, target: ExportImageTarget = 'b
     }
   };
 
-  // 1. Export Cash Closing Table Image
   if (target === 'cash' || target === 'both') {
     const cashFilename = `إغلاق كشف إغلاق تقرير الكاش اليومي في ${date} ${dayLabel}.png`;
     await captureElement('cash-report-export', 'cash-report-content', cashFilename);
   }
 
-  // Small delay between downloads so the browser can trigger both downloads reliably
   if (target === 'both') {
     await new Promise(resolve => setTimeout(resolve, 500));
   }
 
-  // 2. Export Employee Advances & Attendance Table Image
   if (target === 'employees' || target === 'both') {
     const empFilename = `إغلاق تقرير الموظفين اليومي في ${date} ${dayLabel}.png`;
     await captureElement('employee-report-export', 'employeeAdvances', empFilename);
+  }
+};
+
+// -------------------------------------------------------------
+// MULTI-PAGE PDF EXPORT (ROW-SAFE PAGINATION + HEADERS & FOOTERS)
+// -------------------------------------------------------------
+async function sliceElementAtRowBoundaries(
+  contentEl: HTMLElement,
+  maxSliceHeightPx: number,
+  pixelRatio = 2.5
+): Promise<string[]> {
+  const containerRect = contentEl.getBoundingClientRect();
+  const breakElements = Array.from(contentEl.querySelectorAll('tr, .card-container'));
+
+  const boundariesSet = new Set<number>();
+  breakElements.forEach((el) => {
+    const rect = el.getBoundingClientRect();
+    if (rect.height > 0 && (el as HTMLElement).offsetParent !== null) {
+      const bottom = Math.round(rect.bottom - containerRect.top);
+      if (bottom > 0) {
+        boundariesSet.add(bottom);
+      }
+    }
+  });
+
+  const splitPoints = Array.from(boundariesSet).sort((a, b) => a - b);
+
+  const fullDataUrl = await toPng(contentEl, {
+    pixelRatio: pixelRatio,
+    backgroundColor: '#ffffff',
+    filter: EXPORT_FILTER,
+  });
+
+  const img = new Image();
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+    img.src = fullDataUrl;
+  });
+
+  const fullWidth = img.width;
+  const fullHeight = img.height;
+  const scale = fullWidth / contentEl.offsetWidth;
+  const canvasSplits = splitPoints.map(p => Math.round(p * scale));
+
+  const sliceDataUrls: string[] = [];
+  let currentY = 0;
+
+  while (currentY < fullHeight - 10) {
+    const remainingHeight = fullHeight - currentY;
+    if (remainingHeight <= maxSliceHeightPx) {
+      const sliceCanvas = document.createElement('canvas');
+      sliceCanvas.width = fullWidth;
+      sliceCanvas.height = remainingHeight;
+      const ctx = sliceCanvas.getContext('2d')!;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, fullWidth, remainingHeight);
+      ctx.drawImage(img, 0, currentY, fullWidth, remainingHeight, 0, 0, fullWidth, remainingHeight);
+      sliceDataUrls.push(sliceCanvas.toDataURL('image/png'));
+      break;
+    }
+
+    const targetY = currentY + maxSliceHeightPx;
+    // Find highest split point between 40% and 100% of maxSliceHeightPx
+    const candidateSplits = canvasSplits.filter(p => p > currentY + (maxSliceHeightPx * 0.4) && p <= targetY);
+
+    let splitY = targetY;
+    if (candidateSplits.length > 0) {
+      splitY = candidateSplits[candidateSplits.length - 1];
+    }
+
+    const sliceHeight = splitY - currentY;
+    const sliceCanvas = document.createElement('canvas');
+    sliceCanvas.width = fullWidth;
+    sliceCanvas.height = sliceHeight;
+    const ctx = sliceCanvas.getContext('2d')!;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, fullWidth, sliceHeight);
+    ctx.drawImage(img, 0, currentY, fullWidth, sliceHeight, 0, 0, fullWidth, sliceHeight);
+    sliceDataUrls.push(sliceCanvas.toDataURL('image/png'));
+
+    currentY = splitY;
+  }
+
+  return sliceDataUrls;
+}
+
+export const exportToPdf = async (date: string) => {
+  const dayLabel = getDayLabel(date);
+  const cashContainer = document.getElementById('cash-report-export');
+  const empContainer = document.getElementById('employee-report-export');
+  const cashContent = document.getElementById('cash-report-content') || cashContainer;
+  const empContent = document.getElementById('employeeAdvances') || empContainer;
+
+  if (!cashContainer) return;
+
+  try {
+    // 1. Prepare export mode on both containers
+    cashContainer.classList.add('export-mode');
+    if (empContainer) empContainer.classList.add('export-mode');
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    // Dimensions: A4 Landscape: 297mm x 210mm
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    const pageWidthMm = 297;
+    const pageHeightMm = 210;
+    const marginX = 8;
+    const contentWidthMm = pageWidthMm - (marginX * 2); // 281mm
+
+    // Reserved vertical space:
+    // Header at top (y=6, height ~24mm)
+    // No signature footer at bottom as requested, maximizing table visibility
+    // Available middle height for table slice: 210 - 6 - 25 - 5 = 174mm
+    const availableMiddleHeightMm = 174;
+    const contentWidthPx = (cashContent as HTMLElement).offsetWidth || 1040;
+    const maxSliceHeightPx = Math.round((availableMiddleHeightMm / contentWidthMm) * contentWidthPx * 2.5);
+
+    // 2. Slice cash content safely without breaking rows
+    const cashSlices = await sliceElementAtRowBoundaries(cashContent as HTMLElement, maxSliceHeightPx, 2.5);
+
+    // 3. Slice employee content safely if present
+    let empSlices: string[] = [];
+    if (empContainer && empContent) {
+      empSlices = await sliceElementAtRowBoundaries(empContent as HTMLElement, maxSliceHeightPx, 2.5);
+    }
+
+    const totalPages = cashSlices.length + empSlices.length;
+
+    // Helper to capture a header element
+    const captureHeader = async (headerEl: HTMLElement) => {
+      const dataUrl = await toPng(headerEl, {
+        pixelRatio: 2.5,
+        backgroundColor: '#ffffff',
+        filter: EXPORT_FILTER,
+      });
+      const img = new Image();
+      await new Promise(res => { img.onload = res; img.src = dataUrl; });
+      const heightMm = (img.height * contentWidthMm) / img.width;
+      return { dataUrl, heightMm };
+    };
+
+    const cashHeaderEl = document.getElementById('export-header-cash') || cashContainer.querySelector('.export-header') as HTMLElement;
+    const empHeaderEl = document.getElementById('export-header-employee') || empContainer?.querySelector('.export-header') as HTMLElement;
+
+    let currentPage = 1;
+
+    // 4. Render Cash Slices
+    for (let i = 0; i < cashSlices.length; i++) {
+      if (currentPage > 1) {
+        pdf.addPage();
+      }
+
+      // Draw Header
+      let headerHeight = 22;
+      if (cashHeaderEl) {
+        const h = await captureHeader(cashHeaderEl);
+        headerHeight = Math.min(h.heightMm, 25);
+        pdf.addImage(h.dataUrl, 'PNG', marginX, 6, contentWidthMm, headerHeight);
+      }
+
+      // Draw Content Slice
+      const sliceImg = new Image();
+      await new Promise(res => { sliceImg.onload = res; sliceImg.src = cashSlices[i]; });
+      const sliceHeightMm = (sliceImg.height * contentWidthMm) / sliceImg.width;
+      const sliceY = 6 + headerHeight + 2;
+      pdf.addImage(cashSlices[i], 'PNG', marginX, sliceY, contentWidthMm, sliceHeightMm);
+
+      currentPage++;
+    }
+
+    // 5. Render Employee Slices
+    for (let i = 0; i < empSlices.length; i++) {
+      pdf.addPage();
+
+      // Draw Header
+      let headerHeight = 22;
+      if (empHeaderEl) {
+        const h = await captureHeader(empHeaderEl);
+        headerHeight = Math.min(h.heightMm, 25);
+        pdf.addImage(h.dataUrl, 'PNG', marginX, 6, contentWidthMm, headerHeight);
+      }
+
+      // Draw Content Slice
+      const sliceImg = new Image();
+      await new Promise(res => { sliceImg.onload = res; sliceImg.src = empSlices[i]; });
+      const sliceHeightMm = (sliceImg.height * contentWidthMm) / sliceImg.width;
+      const sliceY = 6 + headerHeight + 2;
+      pdf.addImage(empSlices[i], 'PNG', marginX, sliceY, contentWidthMm, sliceHeightMm);
+
+      currentPage++;
+    }
+
+    // 6. Cleanup export mode
+    cashContainer.classList.remove('export-mode');
+    if (empContainer) empContainer.classList.remove('export-mode');
+
+    // Remove any temp badges added
+    document.querySelectorAll('.pdf-page-number').forEach(el => el.remove());
+
+    pdf.save(`تقرير_إغلاق_الكاش_${dayLabel}_${date}.pdf`);
+  } catch (error) {
+    if (cashContainer) cashContainer.classList.remove('export-mode');
+    if (empContainer) empContainer.classList.remove('export-mode');
+    document.querySelectorAll('.pdf-page-number').forEach(el => el.remove());
+    console.error('Error exporting PDF:', error);
+    throw error;
   }
 };

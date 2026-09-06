@@ -1,19 +1,32 @@
 @import "tailwindcss";
 
+/* Force English (Western Arabic) numerals globally across all elements */
+:root, html, body, input, select, textarea, button, table, td, th, span, p, div, label {
+  font-feature-settings: 'lnum' 1, 'tnum' 1, 'latn' 1, 'locl' 0;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
 /* High Contrast & Thick Fonts for Screen & Touch Inputs */
 input[type="number"] {
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums !important;
+  font-feature-settings: 'lnum' 1, 'tnum' 1, 'latn' 1, 'locl' 0 !important;
   font-weight: 800 !important;
   color: #020617 !important;
+  direction: ltr;
+  text-align: center;
   transition: font-size 0.15s ease, transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-input[type="text"], select {
+input[type="text"], input[type="time"], input[type="date"], select, textarea {
+  font-variant-numeric: lining-nums tabular-nums !important;
+  font-feature-settings: 'lnum' 1, 'tnum' 1, 'latn' 1, 'locl' 0 !important;
   font-weight: 700 !important;
   color: #0f172a !important;
 }
 
 table th, table td {
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: 'lnum' 1, 'tnum' 1, 'latn' 1, 'locl' 0;
   font-weight: 700;
   color: #020617;
 }
@@ -216,9 +229,9 @@ input[type="number"]:focus {
 
   th, td {
     border: 1.5px solid #000000 !important;
-    padding: 5px 6px !important;
-    font-size: 13px !important;
-    line-height: 1.3 !important;
+    padding: 6.5px 8px !important;
+    font-size: 14.5px !important;
+    line-height: 1.35 !important;
     font-weight: 800 !important;
     color: #000000 !important;
     -webkit-print-color-adjust: exact !important;
@@ -228,7 +241,7 @@ input[type="number"]:focus {
   th {
     background-color: #cbd5e1 !important;
     font-weight: 900 !important;
-    font-size: 13.5px !important;
+    font-size: 15px !important;
     color: #000000 !important;
     border-bottom: 2px solid #000000 !important;
   }
@@ -257,7 +270,7 @@ input[type="number"]:focus {
     box-shadow: none !important;
     background-color: transparent !important;
     outline: none !important;
-    font-size: 13.5px !important;
+    font-size: 14.5px !important;
     font-weight: 900 !important;
     color: #000000 !important;
     -webkit-text-fill-color: #000000 !important;
@@ -305,28 +318,31 @@ input[type="number"]:focus {
   }
 }
 
-/* Export Mode for Landscape Image Capture */
+/* Export Mode for Landscape Image & PDF Capture (A4 Landscape aspect ratio 1.414) */
 .export-mode {
-  width: 980px !important;
+  width: 1040px !important;
   max-width: none !important;
   margin: 0 auto !important;
-  padding: 14px 16px !important;
+  padding: 16px 18px !important;
   background-color: #ffffff !important;
-  color: #000000 !important;
-  font-weight: 900 !important;
+  color: #020617 !important;
+  font-weight: 800 !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  text-rendering: geometricPrecision !important;
+  box-sizing: border-box !important;
 }
 
-#cash-report-export.export-mode {
-  width: 980px !important;
-}
-
+#cash-report-export.export-mode,
 #employee-report-export.export-mode {
-  width: 980px !important;
+  width: 1040px !important;
 }
 
 .export-mode .print\:hidden,
 .export-mode .no-print,
-.export-mode button {
+.export-mode button,
+.export-mode .export-footer,
+.export-footer {
   display: none !important;
 }
 
@@ -334,28 +350,6 @@ input[type="number"]:focus {
 .export-mode .export-header-cash,
 .export-mode .export-header-employee {
   display: block !important;
-  border: 2px solid #000000 !important;
-  border-radius: 8px !important;
-  background-color: #ffffff !important;
-  padding: 12px 18px !important;
-  margin-bottom: 12px !important;
-  box-shadow: none !important;
-}
-
-.export-mode .export-header-cash h1,
-.export-mode .export-header-employee h1 {
-  font-size: 26px !important;
-  font-weight: 900 !important;
-  color: #000000 !important;
-}
-
-.export-mode .export-header-cash span,
-.export-mode .export-header-employee span,
-.export-mode .export-header-cash strong,
-.export-mode .export-header-employee strong {
-  color: #000000 !important;
-  font-weight: 900 !important;
-  font-size: 17px !important;
 }
 
 .export-mode input[type="time"]::-webkit-calendar-picker-indicator {
@@ -365,7 +359,7 @@ input[type="number"]:focus {
 .export-mode header {
   flex-direction: row !important;
   align-items: center !important;
-  border: 2px solid #000000 !important;
+  border: 2px solid #0f172a !important;
   padding: 10px 16px !important;
   border-radius: 8px !important;
   background-color: #ffffff !important;
@@ -378,7 +372,7 @@ input[type="number"]:focus {
 .export-mode .export-grid-2 {
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  gap: 10px !important;
+  gap: 12px !important;
   width: 100% !important;
 }
 
@@ -393,7 +387,7 @@ input[type="number"]:focus {
 
 /* Card containers in export mode */
 .export-mode .card-container {
-  border: 2px solid #000000 !important;
+  border: 2px solid #0f172a !important;
   border-radius: 8px !important;
   box-shadow: none !important;
   background-color: #ffffff !important;
@@ -402,17 +396,20 @@ input[type="number"]:focus {
   margin-bottom: 2px !important;
 }
 
+/* Dark Brand Header for Cards */
 .export-mode .card-container > div:first-child {
-  background-color: #e2e8f0 !important;
-  border-bottom: 2px solid #000000 !important;
-  padding: 6px 12px !important;
+  background-color: #1e1b4b !important; /* Restaurant Brand Deep Indigo */
+  border-bottom: 2px solid #0f172a !important;
+  padding: 8px 12px !important;
+  color: #ffffff !important;
 }
 
 .export-mode .card-container h3,
 .export-mode .card-container h2 {
-  font-size: 19.5px !important;
+  font-size: 19px !important;
   font-weight: 900 !important;
-  color: #000000 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
 }
 
 /* All text, labels, and numbers in export mode */
@@ -420,9 +417,9 @@ input[type="number"]:focus {
 .export-mode .card-container p,
 .export-mode .card-container div,
 .export-mode .card-container label {
-  color: #000000 !important;
-  font-size: 16.5px !important;
-  font-weight: 900 !important;
+  color: #020617 !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
 }
 
 .export-mode .card-container strong,
@@ -431,117 +428,163 @@ input[type="number"]:focus {
 .export-mode .card-container .font-extrabold,
 .export-mode .card-container .font-bold {
   font-weight: 900 !important;
-  color: #000000 !important;
-  font-size: 18px !important;
+  color: #020617 !important;
+  font-size: 17.5px !important;
 }
 
-/* Tables styling in image export mode */
+/* Tables styling in image export mode - high contrast dark header + zebra striping */
 .export-mode table {
   width: 100% !important;
   border-collapse: collapse !important;
-  border: 2px solid #000000 !important;
+  border: 2px solid #0f172a !important;
 }
 
 .export-mode th, .export-mode td {
-  border: 1.5px solid #000000 !important;
-  padding: 5px 7px !important;
-  font-size: 17.5px !important;
-  line-height: 1.25 !important;
-  font-weight: 900 !important;
-  color: #000000 !important;
-  -webkit-text-fill-color: #000000 !important;
+  border: 1.5px solid #64748b !important; /* Clear visible border between all cells */
+  padding: 7px 10px !important;
+  font-size: 17px !important;
+  line-height: 1.35 !important;
+  font-weight: 800 !important;
+  color: #020617 !important;
+  -webkit-text-fill-color: #020617 !important;
+  vertical-align: middle !important;
 }
 
+/* Dark Header with White Bold Text */
 .export-mode th {
-  background-color: #cbd5e1 !important;
+  background-color: #1e1b4b !important; /* Restaurant Deep Indigo */
   font-weight: 900 !important;
-  font-size: 18px !important;
-  color: #000000 !important;
-  border-bottom: 2px solid #000000 !important;
-  padding: 6px 7px !important;
+  font-size: 17.5px !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  border: 1.5px solid #0f172a !important;
+  border-bottom: 2.5px solid #0f172a !important;
+  padding: 8px 10px !important;
+  text-align: center !important;
 }
 
-.export-mode td {
+/* Zebra striping for easy reading */
+.export-mode tr:nth-child(odd) td {
   background-color: #ffffff !important;
-  color: #000000 !important;
-  -webkit-text-fill-color: #000000 !important;
 }
 
 .export-mode tr:nth-child(even) td {
-  background-color: #f8fafc !important;
+  background-color: #f1f5f9 !important; /* Soft Slate */
 }
 
+/* Footer totals and highlights */
 .export-mode tfoot tr td,
 .export-mode tr:last-child td.font-bold,
 .export-mode tr:last-child td.font-extrabold {
   background-color: #e2e8f0 !important;
   font-weight: 900 !important;
-  font-size: 18.5px !important;
-  border-top: 2px solid #000000 !important;
+  font-size: 17.5px !important;
+  border-top: 2.5px solid #0f172a !important;
+  color: #020617 !important;
+  padding: 8px 10px !important;
 }
 
 .export-mode input, .export-mode select {
   border: none !important;
   background: transparent !important;
-  font-size: 18px !important;
+  font-size: 17px !important;
   font-weight: 900 !important;
-  color: #000000 !important;
-  -webkit-text-fill-color: #000000 !important;
+  color: #020617 !important;
+  -webkit-text-fill-color: #020617 !important;
   text-align: center !important;
   box-shadow: none !important;
   padding: 2px 2px !important;
   height: auto !important;
-  line-height: 1.25 !important;
+  line-height: 1.35 !important;
+  width: 100% !important;
 }
 
 .export-mode input::placeholder {
   color: transparent !important;
 }
 
-/* Summary badges, pills, and employee advances contrast in export mode */
+/* Summary badges, pills, and highlights in export mode */
 .export-mode .bg-slate-50, 
 .export-mode .bg-gray-50, 
 .export-mode .bg-blue-50, 
-.export-mode .bg-emerald-50, 
 .export-mode .bg-amber-50, 
-.export-mode .bg-rose-50, 
 .export-mode .bg-indigo-50 {
   background-color: #f8fafc !important;
-  border-color: #000000 !important;
+  border-color: #64748b !important;
+}
+
+/* Specific highlight: Shortage (Deficit) - #be123c */
+.export-mode .text-\[\#be123c\],
+.export-mode .text-rose-700,
+.export-mode .text-rose-800,
+.export-mode .text-red-700,
+.export-mode .text-red-600 {
+  color: #be123c !important;
+  -webkit-text-fill-color: #be123c !important;
+}
+
+.export-mode .bg-\[\#fff1f2\],
+.export-mode .bg-rose-100,
+.export-mode .bg-rose-50,
+.export-mode .bg-red-50 {
+  background-color: #fff1f2 !important;
+  border-color: #be123c !important;
+}
+
+/* Specific highlight: Surplus / Exact match - #047857 */
+.export-mode .text-\[\#047857\],
+.export-mode .text-emerald-700,
+.export-mode .text-emerald-800,
+.export-mode .text-emerald-900,
+.export-mode .text-green-700 {
+  color: #047857 !important;
+  -webkit-text-fill-color: #047857 !important;
+}
+
+.export-mode .bg-\[\#ecfdf5\],
+.export-mode .bg-emerald-100,
+.export-mode .bg-emerald-50,
+.export-mode .bg-green-50 {
+  background-color: #ecfdf5 !important;
+  border-color: #047857 !important;
 }
 
 .export-mode #employeeAdvances th {
-  font-size: 18px !important;
+  font-size: 17.5px !important;
   font-weight: 900 !important;
-  color: #000000 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  background-color: #1e1b4b !important;
+  padding: 8px 10px !important;
 }
 
 .export-mode #employeeAdvances td,
 .export-mode #employeeAdvances input {
-  color: #000000 !important;
-  font-size: 17.5px !important;
-  font-weight: 900 !important;
+  color: #020617 !important;
+  font-size: 16.5px !important;
+  font-weight: 800 !important;
+  padding: 6px 8px !important;
 }
 
 .export-mode #employeeAdvances th:nth-child(3),
 .export-mode #employeeAdvances th:nth-child(4),
 .export-mode #employeeAdvances td:nth-child(3),
 .export-mode #employeeAdvances td:nth-child(4) {
-  min-width: 155px !important;
-  width: 165px !important;
+  min-width: 140px !important;
+  width: 150px !important;
   text-align: center !important;
 }
 
 .export-mode .export-time-text {
   display: block !important;
-  font-size: 18px !important;
+  font-size: 17px !important;
   font-weight: 900 !important;
-  color: #000000 !important;
-  -webkit-text-fill-color: #000000 !important;
+  color: #020617 !important;
+  -webkit-text-fill-color: #020617 !important;
   text-align: center !important;
-  line-height: 1.25 !important;
+  line-height: 1.35 !important;
   white-space: nowrap !important;
-  padding: 2px 4px !important;
+  padding: 3px 4px !important;
 }
 
 .export-mode .export-time-input {

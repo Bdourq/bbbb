@@ -1,0 +1,31 @@
+{
+  "entities": {
+    "Shift": {
+      "title": "Shift",
+      "description": "Daily cashier shift financial report document",
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string",
+          "description": "Shift date in YYYY-MM-DD format",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "isClosed": {
+          "type": "boolean",
+          "description": "Whether the shift is closed"
+        },
+        "cashierName": {
+          "type": "string",
+          "description": "Name of the cashier responsible for the shift"
+        }
+      },
+      "required": ["date", "isClosed", "cashierName"]
+    }
+  },
+  "firestore": {
+    "/shifts/{shiftDate}": {
+      "schema": "Shift",
+      "description": "Stores daily cashier shift reports"
+    }
+  }
+}

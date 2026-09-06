@@ -104,8 +104,15 @@ export const ExportButtons = () => {
         printDocument();
       });
     } else if (action === 'excel') {
-      exportToExcel(data, calc);
-      toast.success('تم تصدير ملف Excel بنجاح');
+      const loadingToast = toast.loading('جاري تجهيز وتصدير ملف Excel مطابق للقالب...');
+      exportToExcel(data, calc)
+        .then(() => {
+          toast.success('تم تصدير ملف Excel بنجاح 📊', { id: loadingToast });
+        })
+        .catch((err) => {
+          console.error(err);
+          toast.error('حدث خطأ أثناء تصدير Excel، يرجى المحاولة مرة أخرى', { id: loadingToast });
+        });
     }
   };
 

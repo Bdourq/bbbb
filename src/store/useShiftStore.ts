@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { db } from '../lib/firebase';
 import { doc, onSnapshot, setDoc, collection, getDocs, getDoc, query, orderBy, where, limit, deleteDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
+import { toEnglishNumbers } from '../lib/utils';
+import { calculateShiftMetrics } from '../lib/shiftCalculations';
 
 export type LineItem = {
   id: string;
@@ -89,7 +91,7 @@ export type ShiftData = {
     rt: number;
     maestro: number;
     priceDifference: number;
-    advances: number;
+    advances?: number | null;
     wallet: number;
     manualPurchases?: number;
     manualPayMerchant?: number;
@@ -176,7 +178,7 @@ const defaultState: ShiftData = {
     rt: 0,
     maestro: 0,
     priceDifference: 0,
-    advances: 0,
+    advances: null,
     wallet: 0,
   },
   employeeAdvances: defaultEmployees.map((name, index) => ({
@@ -197,7 +199,7 @@ type StoreState = {
   addLineItem: (listName: keyof ShiftData) => void;
   removeLineItem: (listName: keyof ShiftData, id: string) => void;
   addEmployee: () => void;
-  removeEmployee: (id: string) => void;
+  removeEmployee: (idOrIndex: string | number) => void;
   addCustodyItem: (type?: 'out' | 'in') => void;
   removeCustodyItem: (id: string) => void;
   syncFromRemote: (data: ShiftData) => void;
@@ -210,25 +212,46 @@ type StoreState = {
   fetchMonthlyShortage: (cashierName: string, date: string) => Promise<void>;
   previousDayActualCash: number;
   fetchPreviousDayCash: (targetDate: string) => Promise<number>;
+  setMorningCashier: (morningName: string) => void;
+  swapShiftCashiers: () => void;
   closeShift: () => void;
   reopenShift: () => void;
 };
 
 // High-performance immutable nested updater (O(depth) instead of O(N) JSON serialization)
 const updateNestedState = (obj: any, path: (string | number)[], value: any): any => {
-  if (path.length === 0) return value;
+  const sanitizedValue = typeof value === 'string' ? toEnglishNumbers(value) : value;
+  if (path.length === 0) return sanitizedValue;
   const [head, ...tail] = path;
   
   if (Array.isArray(obj)) {
     const index = Number(head);
     const newArr = [...obj];
-    newArr[index] = tail.length > 0 ? updateNestedState(obj[index] ?? {}, tail, value) : value;
+    newArr[index] = tail.length > 0 ? updateNestedState(obj[index] ?? {}, tail, sanitizedValue) : sanitizedValue;
     return newArr;
   }
   
   const newObj = { ...obj };
-  newObj[head] = tail.length > 0 ? updateNestedState(obj[head] ?? {}, tail, value) : value;
+  newObj[head] = tail.length > 0 ? updateNestedState(obj[head] ?? {}, tail, sanitizedValue) : sanitizedValue;
   return newObj;
+};
+
+export const cleanDataForFirestore = <T>(obj: T): T => {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(cleanDataForFirestore) as unknown as T;
+  const cleaned: Record<string, any> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined) {
+      cleaned[k] = cleanDataForFirestore(v);
+    }
+  }
+  return cleaned as T;
+};
+
+const safeSetDoc = async (docRef: any, data: any, options?: any) => {
+  const payload = cleanDataForFirestore(data);
+  return options ? setDoc(docRef, payload, options) : setDoc(docRef, payload);
 };
 
 let debounceTimeout: NodeJS.Timeout | null = null;
@@ -244,7 +267,7 @@ const syncToFirestore = (data: ShiftData) => {
     pendingDataToSync = null;
     try {
       const shiftDoc = doc(db, 'shifts', data.date);
-      await setDoc(shiftDoc, data, { merge: true });
+      await safeSetDoc(shiftDoc, data, { merge: true });
     } catch (error) {
       console.error('Error syncing to Firestore', error);
     }
@@ -257,7 +280,7 @@ if (typeof window !== 'undefined') {
     if (pendingDataToSync && debounceTimeout) {
       const shiftDoc = doc(db, 'shifts', pendingDataToSync.date);
       // Fire-and-forget sync before tab closes
-      setDoc(shiftDoc, pendingDataToSync, { merge: true });
+      safeSetDoc(shiftDoc, pendingDataToSync, { merge: true });
     }
   });
 }
@@ -305,31 +328,9 @@ export const useShiftStore = create<StoreState>((set, get) => ({
       snapshot.forEach(doc => {
         const docData = doc.data() as ShiftData;
         if (docData.cashierName === cashierName && docData.date.startsWith(monthPrefix) && docData.date >= '2026-09-05') {
-          const totalInventory = (docData.actualInventory?.actualCash || 0) + (docData.actualInventory?.visa || 0) + (docData.actualInventory?.rt || 0) + (docData.actualInventory?.maestro || 0) + (docData.actualInventory?.priceDifference || 0) + (docData.actualInventory?.advances || 0) + ((docData.ewallet || []).reduce((sum, item) => sum + (item.amount || 0), 0)) +
-            (docData.purchases || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
-            (docData.otherExpenses || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
-            (docData.abuAbdullah || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
-            (docData.equipment || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
-            (docData.apartment || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
-            (docData.adminExpenses || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
-            (docData.ewallet || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
-            (docData.payMerchantReceivables || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
-            (docData.yahya || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
-            (docData.spices || []).reduce((sum, item) => sum + (item.amount || 0), 0);
-          
-          const cashInfo = docData.cashAndSales;
-          const addedReceivablesTotal = docData.addCashReceivables 
-            ? docData.addCashReceivables.reduce((sum, item) => sum + (item.amount || 0), 0)
-            : (cashInfo?.paidOldReceivables || 0);
-
-          const newReceivablesTotal = docData.addNewReceivables
-            ? docData.addNewReceivables.reduce((sum, item) => sum + (item.amount || 0), 0)
-            : (cashInfo?.addedReceivables || 0);
-
-          const totalExpectedCash = (cashInfo?.openingCash || 0) + (cashInfo?.sales || 0) + (cashInfo?.otherSales || 0) + newReceivablesTotal - addedReceivablesTotal;
-          const shortage = totalExpectedCash - totalInventory;
-          if (shortage > 0.01) {
-            totalShortage += shortage;
+          const metrics = calculateShiftMetrics(docData);
+          if (metrics.cashShortage > 0.01) {
+            totalShortage += metrics.cashShortage;
           }
         }
       });
@@ -348,14 +349,8 @@ export const useShiftStore = create<StoreState>((set, get) => ({
 
       for (const docSnap of snapshot.docs) {
         const id = docSnap.id;
-        // Purge old reports prior to system start date (2026-09-04)
-        if (id < START_DATE) {
-          try {
-            await deleteDoc(doc(db, 'shifts', id));
-          } catch (e) {
-            console.error('Error auto-cleaning report:', id, e);
-          }
-        } else {
+        // Do not auto-delete old reports; only manual deletion is allowed
+        if (id >= START_DATE) {
           activeDates.push(id);
         }
       }
@@ -458,10 +453,26 @@ export const useShiftStore = create<StoreState>((set, get) => ({
     });
   },
 
-  removeEmployee: (id: string) => {
+  removeEmployee: (idOrIndex: string | number) => {
     set((state) => {
       if (state.data.isClosed) return state;
-      const updatedEmployees = state.data.employeeAdvances.filter((emp: any) => emp.id !== id);
+      let updatedEmployees;
+      if (typeof idOrIndex === 'number') {
+        updatedEmployees = state.data.employeeAdvances.filter((_, idx) => idx !== idOrIndex);
+      } else {
+        const found = state.data.employeeAdvances.some(emp => emp.id === idOrIndex);
+        if (found) {
+          updatedEmployees = state.data.employeeAdvances.filter(emp => emp.id !== idOrIndex);
+        } else {
+          // If not matched by ID, try numeric index
+          const numericIdx = parseInt(idOrIndex, 10);
+          if (!isNaN(numericIdx) && numericIdx >= 0 && numericIdx < state.data.employeeAdvances.length) {
+            updatedEmployees = state.data.employeeAdvances.filter((_, idx) => idx !== numericIdx);
+          } else {
+            updatedEmployees = state.data.employeeAdvances.filter(emp => emp.id !== idOrIndex);
+          }
+        }
+      }
       const newData = { ...state.data, employeeAdvances: updatedEmployees };
       syncToFirestore(newData);
       return { data: newData };
@@ -496,6 +507,102 @@ export const useShiftStore = create<StoreState>((set, get) => ({
       const currentList = state.data.custodyItems || [];
       const updatedCustody = currentList.filter((item: any) => item.id !== id);
       const newData = { ...state.data, custodyItems: updatedCustody };
+      syncToFirestore(newData);
+      return { data: newData };
+    });
+  },
+
+  setMorningCashier: (morningName: string) => {
+    set((state) => {
+      if (state.data.isClosed) return state;
+      const morning = morningName.trim();
+      const isQusay = morning.includes('قصي');
+      const evening = morning ? (isQusay ? 'أمجد شحادات' : 'قصي البدور') : '';
+
+      const newShiftHandover = {
+        ...(state.data.shiftHandover || {
+          sales: 0,
+          actualCash: 0,
+          expectedCash: 0,
+          difference: 0,
+          timestamp: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+        }),
+        morningCashier: morning,
+        eveningCashier: evening
+      };
+
+      const newShiftDifferences: ShiftDifferencesData = {
+        morning: {
+          ...(state.data.shiftDifferences?.morning || { type: 'exact', amount: 0, notes: 'صباحي' }),
+          cashierName: morning,
+          notes: 'صباحي'
+        },
+        evening: {
+          ...(state.data.shiftDifferences?.evening || { type: 'exact', amount: 0, notes: 'مسائي' }),
+          cashierName: evening,
+          notes: 'مسائي'
+        }
+      };
+
+      const newCashierName = morning && evening 
+        ? `${morning} (صباحي) + ${evening} (مسائي)` 
+        : (morning || evening || '');
+
+      const newData: ShiftData = {
+        ...state.data,
+        cashierName: newCashierName,
+        shiftHandover: newShiftHandover,
+        shiftDifferences: newShiftDifferences
+      };
+
+      syncToFirestore(newData);
+      return { data: newData };
+    });
+  },
+
+  swapShiftCashiers: () => {
+    set((state) => {
+      if (state.data.isClosed) return state;
+      const currentMorning = state.data.shiftDifferences?.morning?.cashierName || state.data.shiftHandover?.morningCashier || 'قصي البدور';
+      const currentEvening = state.data.shiftDifferences?.evening?.cashierName || state.data.shiftHandover?.eveningCashier || 'أمجد شحادات';
+      
+      const newMorning = currentEvening;
+      const newEvening = currentMorning;
+
+      const newShiftHandover = {
+        ...(state.data.shiftHandover || {
+          sales: 0,
+          actualCash: 0,
+          expectedCash: 0,
+          difference: 0,
+          timestamp: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+        }),
+        morningCashier: newMorning,
+        eveningCashier: newEvening
+      };
+
+      const newShiftDifferences: ShiftDifferencesData = {
+        morning: {
+          ...(state.data.shiftDifferences?.morning || { type: 'exact', amount: 0, notes: 'صباحي' }),
+          cashierName: newMorning,
+          notes: 'صباحي'
+        },
+        evening: {
+          ...(state.data.shiftDifferences?.evening || { type: 'exact', amount: 0, notes: 'مسائي' }),
+          cashierName: newEvening,
+          notes: 'مسائي'
+        }
+      };
+
+      const newCashierName = `${newMorning} (صباحي) + ${newEvening} (مسائي)`;
+
+      const newData: ShiftData = {
+        ...state.data,
+        cashierName: newCashierName,
+        shiftHandover: newShiftHandover,
+        shiftDifferences: newShiftDifferences
+      };
+
       syncToFirestore(newData);
       return { data: newData };
     });
@@ -536,6 +643,12 @@ export const useShiftStore = create<StoreState>((set, get) => ({
     if (!remoteData.custodyItems) {
       remoteData.custodyItems = [];
     }
+    if (remoteData.employeeAdvances) {
+      remoteData.employeeAdvances = remoteData.employeeAdvances.map((emp, idx) => ({
+        ...emp,
+        id: emp.id || generateId() || `emp-${idx}`
+      }));
+    }
     set({ data: remoteData, isLoading: false });
   },
 
@@ -567,7 +680,7 @@ export const useShiftStore = create<StoreState>((set, get) => ({
               otherSales: 0
             };
             remoteData.cashAndSales.openingCash = initialCash;
-            setDoc(shiftDoc, remoteData, { merge: true });
+            safeSetDoc(shiftDoc, remoteData, { merge: true });
           }
         }
         get().syncFromRemote(remoteData);
@@ -585,7 +698,7 @@ export const useShiftStore = create<StoreState>((set, get) => ({
             openingCash: initialCash
           }
         };
-        setDoc(shiftDoc, currentData);
+        safeSetDoc(shiftDoc, currentData);
         set({ data: currentData, isLoading: false });
       }
     });

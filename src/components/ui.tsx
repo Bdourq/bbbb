@@ -69,14 +69,16 @@ export const CardHeader = ({
     <div 
       onClick={collapsible ? toggle : undefined}
       className={cn(
-        "px-3 py-2 flex justify-between items-center transition-colors select-none",
-        collapsible && "cursor-pointer hover:bg-gray-200/70 active:bg-gray-200",
-        isError ? "bg-rose-100 border-b border-rose-300 text-rose-900" : (headerClassName || "bg-gray-100 border-b border-gray-300 print:bg-gray-200")
+        "px-3 py-2 flex justify-between items-center transition-colors select-none font-tajawal",
+        collapsible && "cursor-pointer hover:brightness-110 active:brightness-95",
+        isError 
+          ? "bg-[#fff1f2] border-b-2 border-[#be123c] text-[#be123c]" 
+          : (headerClassName || "bg-[#1e1b4b] text-white border-b-2 border-[#0f172a]")
       )}
     >
       <div className="flex items-center gap-2 min-w-0">
-        {isError && <AlertCircle size={16} className="text-rose-600 shrink-0 animate-bounce" />}
-        <h3 className={cn("font-bold text-sm truncate", isError ? "text-rose-900" : headerClassName ? "text-white font-black text-base" : "text-gray-800")}>{title}</h3>
+        {isError && <AlertCircle size={16} className="text-[#be123c] shrink-0 animate-bounce" />}
+        <h3 className={cn("font-black truncate font-tajawal", isError ? "text-[#be123c] text-sm" : "text-white text-base")}>{title}</h3>
         {badge}
       </div>
       <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -168,8 +170,8 @@ export const DynamicList = ({
         isError={hasError}
         errorMessage={errorMessage}
         badge={total > 0 ? (
-          <span className="text-xs font-black bg-indigo-100 text-indigo-900 px-2 py-0.5 rounded-md border border-indigo-200 print:hidden">
-            {total.toLocaleString('en-US')}
+          <span className="text-xs font-black bg-white text-[#1e1b4b] px-2 py-0.5 rounded-md border border-indigo-200 print:hidden" dir="ltr">
+            {total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.أ
           </span>
         ) : undefined}
         action={
@@ -228,7 +230,9 @@ export const DynamicList = ({
             ) : (
               items.map((item, index) => {
                 const isItemMissingLabel = !hideLabel && Number(item.amount) > 0 && !item.label.trim();
-                const isItemEmpty = !item.label.trim() && !item.amount;
+                const isItemEmpty = hideLabel 
+                  ? (!item.amount || Number(item.amount) === 0) 
+                  : ((!item.label || !item.label.trim()) && (!item.amount || Number(item.amount) === 0));
                 return (
                   <tr key={item.id} className={cn("border-b border-gray-300 hover:bg-gray-50", isItemMissingLabel && "bg-rose-50/60", isItemEmpty && "print:hidden export-empty-row")}>
                     {!hideLabel ? (
@@ -321,8 +325,10 @@ export const DynamicList = ({
               })
             )}
             <tr className="bg-gray-100 font-extrabold border-t border-gray-300">
-              <td className="px-2 py-1.5 border border-gray-300 text-center text-gray-900 font-extrabold" colSpan={hideLabel ? 1 : 1}>الإجمالي</td>
-              <td className="px-2 py-1.5 border border-gray-300 text-center text-slate-950 font-black text-xs sm:text-sm" dir="ltr">{total.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</td>
+              <td className="px-2 py-1.5 border border-gray-300 text-center text-[#0f172a] font-black" colSpan={hideLabel ? 1 : 1}>الإجمالي</td>
+              <td className="px-2 py-1.5 border border-gray-300 text-center text-[#1e1b4b] font-black text-xs sm:text-sm" dir="ltr">
+                {total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.أ
+              </td>
               <td className="border border-gray-300 print:hidden"></td>
             </tr>
           </tbody>

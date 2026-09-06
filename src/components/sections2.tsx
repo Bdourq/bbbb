@@ -2,7 +2,7 @@ import React from 'react';
 import { useShiftStore } from '../store/useShiftStore';
 import { Card, CardHeader, CardContent } from './ui';
 import { Plus, Trash2 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, toEnglishNumbers } from '../lib/utils';
 
 export const KitchenConsumptionSection = React.memo(() => {
   const data = useShiftStore(state => state.data.kitchenConsumption);
@@ -24,14 +24,14 @@ export const KitchenConsumptionSection = React.memo(() => {
     <Card id="kitchenConsumption" data-empty={isEmpty}>
       <CardHeader title="استهلاك المطبخ" />
       <CardContent>
-        <table className="w-full text-xs sm:text-sm text-right border-collapse border border-gray-300">
+        <table className="w-full text-sm sm:text-base text-right border-collapse border border-gray-300 font-tajawal">
           <tbody>
             {fields.map((field) => {
               const val = data[field.key as keyof typeof data];
               const isFieldEmpty = !val;
               return (
                 <tr key={field.key} className={cn("border-b border-gray-300 last:border-b-0", isFieldEmpty && "print:hidden export-empty-row")}>
-                  <td className="px-2 py-1.5 bg-gray-100 border border-gray-300 font-extrabold text-gray-900 w-1/2 text-center">{field.label}</td>
+                  <td className="px-3 py-2 bg-gray-100 border border-gray-300 font-extrabold text-gray-900 w-1/2 text-center text-sm sm:text-base">{field.label}</td>
                   <td className="p-0 border border-gray-300">
                     <input
                       type="number"
@@ -41,7 +41,7 @@ export const KitchenConsumptionSection = React.memo(() => {
                       onFocus={(e) => e.target.select()}
                       onWheel={(e) => e.currentTarget.blur()}
                       onChange={(e) => updateData(['kitchenConsumption', field.key], Number(e.target.value))}
-                      className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center font-extrabold text-slate-950 focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg focus:text-indigo-900 transition-all duration-150"
+                      className="w-full h-full px-3 py-2 bg-transparent outline-none text-center font-black text-slate-950 text-sm sm:text-base md:text-lg focus:bg-amber-50/80 focus:text-indigo-900 transition-all duration-150"
                       dir="ltr"
                       placeholder="0"
                     />
@@ -74,14 +74,14 @@ export const ProductionInventorySection = React.memo(() => {
     <Card id="productionInventory" data-empty={isEmpty}>
       <CardHeader title="جرد الإنتاج" />
       <CardContent>
-        <table className="w-full text-xs sm:text-sm text-right border-collapse border border-gray-300">
+        <table className="w-full text-sm sm:text-base text-right border-collapse border border-gray-300 font-tajawal">
           <tbody>
             {fields.map((field) => {
               const val = data[field.key as keyof typeof data];
               const isFieldEmpty = !val;
               return (
                 <tr key={field.key} className={cn("border-b border-gray-300 last:border-b-0", isFieldEmpty && "print:hidden export-empty-row")}>
-                  <td className="px-2 py-1.5 bg-gray-100 border border-gray-300 font-extrabold text-gray-900 w-1/2 text-center">{field.label}</td>
+                  <td className="px-3 py-2 bg-gray-100 border border-gray-300 font-extrabold text-gray-900 w-1/2 text-center text-sm sm:text-base">{field.label}</td>
                   <td className="p-0 border border-gray-300">
                     <input
                       type="number"
@@ -91,7 +91,7 @@ export const ProductionInventorySection = React.memo(() => {
                       onFocus={(e) => e.target.select()}
                       onWheel={(e) => e.currentTarget.blur()}
                       onChange={(e) => updateData(['productionInventory', field.key], Number(e.target.value))}
-                      className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center font-extrabold text-slate-950 focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg focus:text-indigo-900 transition-all duration-150"
+                      className="w-full h-full px-3 py-2 bg-transparent outline-none text-center font-black text-slate-950 text-sm sm:text-base md:text-lg focus:bg-amber-50/80 focus:text-indigo-900 transition-all duration-150"
                       dir="ltr"
                       placeholder="0"
                     />
@@ -110,16 +110,19 @@ ProductionInventorySection.displayName = 'ProductionInventorySection';
 
 export const calculateWage = (startTime: string, endTime: string, hourlyRate: number) => {
   if (!startTime || !endTime || !hourlyRate) return 0;
-  const [sh, sm] = startTime.split(':').map(Number);
-  const [eh, em] = endTime.split(':').map(Number);
+  const sNorm = toEnglishNumbers(startTime);
+  const eNorm = toEnglishNumbers(endTime);
+  const [sh, sm] = sNorm.split(':').map(Number);
+  const [eh, em] = eNorm.split(':').map(Number);
   let hours = (eh + em / 60) - (sh + sm / 60);
   if (hours < 0) hours += 24;
-  return Number((hours * hourlyRate).toFixed(2));
+  return Number((hours * Number(hourlyRate)).toFixed(2));
 };
 
 export const formatTimeForDisplay = (timeStr?: string) => {
   if (!timeStr || !timeStr.trim()) return '-';
-  const parts = timeStr.trim().split(':');
+  const normalized = toEnglishNumbers(timeStr);
+  const parts = normalized.trim().split(':');
   if (parts.length >= 2) {
     const h = parseInt(parts[0], 10);
     const m = parts[1].slice(0, 2);
@@ -131,7 +134,7 @@ export const formatTimeForDisplay = (timeStr?: string) => {
       return `${hStr}:${m} ${period}`;
     }
   }
-  return timeStr;
+  return normalized;
 };
 
 export const EmployeeAdvancesSection = React.memo(() => {
@@ -170,16 +173,16 @@ export const EmployeeAdvancesSection = React.memo(() => {
       />
       <CardContent>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs sm:text-sm text-right border-collapse border border-gray-300">
+          <table className="w-full text-sm sm:text-base text-right border-collapse border border-gray-300 font-tajawal">
             <thead className="bg-gray-100 border-b border-gray-300">
               <tr>
-                <th className="px-1 py-1.5 font-extrabold text-gray-900 border border-gray-300 w-8 text-center">م</th>
-                <th className="px-2 py-1.5 font-extrabold text-gray-900 border border-gray-300 min-w-[120px] text-center">اسم الموظف</th>
-                <th className="px-2 py-1.5 font-extrabold text-gray-900 border border-gray-300 min-w-[150px] w-40 text-center">الدخول</th>
-                <th className="px-2 py-1.5 font-extrabold text-gray-900 border border-gray-300 min-w-[150px] w-40 text-center">الخروج</th>
-                <th className="px-1 py-1.5 font-extrabold text-gray-900 border border-gray-300 w-20 text-center">أجر/ساعة</th>
-                <th className="px-2 py-1.5 font-extrabold text-gray-900 border border-gray-300 w-24 text-center">قيمة السلفة</th>
-                <th className="px-2 py-1.5 font-extrabold text-gray-900 border border-gray-300 min-w-[150px] text-center">ملاحظات / توقيع</th>
+                <th className="px-1.5 py-2 font-black text-gray-950 border border-gray-300 w-9 text-center text-sm sm:text-base">م</th>
+                <th className="px-3 py-2 font-black text-gray-950 border border-gray-300 min-w-[130px] text-center text-sm sm:text-base">اسم الموظف</th>
+                <th className="px-3 py-2 font-black text-gray-950 border border-gray-300 min-w-[150px] w-40 text-center text-sm sm:text-base">الدخول</th>
+                <th className="px-3 py-2 font-black text-gray-950 border border-gray-300 min-w-[150px] w-40 text-center text-sm sm:text-base">الخروج</th>
+                <th className="px-2 py-2 font-black text-gray-950 border border-gray-300 w-24 text-center text-sm sm:text-base">أجر/ساعة</th>
+                <th className="px-2 py-2 font-black text-gray-950 border border-gray-300 w-28 text-center text-sm sm:text-base">قيمة السلفة</th>
+                <th className="px-3 py-2 font-black text-gray-950 border border-gray-300 min-w-[150px] text-center text-sm sm:text-base">ملاحظات / توقيع</th>
                 <th className="px-1 py-1 w-8 border border-gray-300 print:hidden"></th>
               </tr>
             </thead>
@@ -188,7 +191,7 @@ export const EmployeeAdvancesSection = React.memo(() => {
                 const isOff = emp.employeeName.trim() && !emp.startTime && !emp.endTime;
                 const hasBoth = emp.employeeName.trim() && emp.startTime && emp.endTime;
                 const hasInOnly = emp.employeeName.trim() && emp.startTime && !emp.endTime && !isOff;
-                const isEmpEmpty = !emp.employeeName.trim() && !emp.startTime && !emp.endTime && !emp.amount;
+                const isEmpEmpty = !emp.employeeName.trim() && !emp.startTime && !emp.endTime && (!emp.amount || Number(emp.amount) === 0);
                 return (
                   <tr 
                     key={emp.id} 
@@ -200,13 +203,13 @@ export const EmployeeAdvancesSection = React.memo(() => {
                       isEmpEmpty && "print:hidden export-empty-row"
                     )}
                   >
-                    <td className={`px-1 py-1.5 border border-gray-300 text-center font-medium ${
-                      isOff ? 'text-rose-700 bg-rose-100/60 font-bold' :
-                      hasBoth ? 'text-emerald-800 bg-emerald-100/60 font-bold' :
-                      hasInOnly ? 'text-sky-800 bg-sky-100/60 font-bold' : 'text-gray-500'
+                    <td className={`px-1.5 py-2 border border-gray-300 text-center font-bold text-sm sm:text-base ${
+                      isOff ? 'text-rose-700 bg-rose-100/60 font-black' :
+                      hasBoth ? 'text-emerald-800 bg-emerald-100/60 font-black' :
+                      hasInOnly ? 'text-sky-800 bg-sky-100/60 font-black' : 'text-gray-700'
                     }`}>{index + 1}</td>
                     <td className="p-0 border border-gray-300">
-                      <div className="flex items-center justify-between px-2 py-1.5">
+                      <div className="flex items-center justify-between px-3 py-2">
                         <input
                           type="text"
                           value={emp.employeeName}
@@ -217,10 +220,10 @@ export const EmployeeAdvancesSection = React.memo(() => {
                               addEmployee();
                             }
                           }}
-                          className={`w-full bg-transparent outline-none text-center focus:bg-amber-50 focus:font-bold ${
-                            isOff ? 'font-bold text-rose-900' :
-                            hasBoth ? 'font-bold text-emerald-950' :
-                            hasInOnly ? 'font-bold text-sky-950' : ''
+                          className={`w-full bg-transparent outline-none text-center text-sm sm:text-base font-bold focus:bg-amber-50 ${
+                            isOff ? 'font-black text-rose-900' :
+                            hasBoth ? 'font-black text-emerald-950' :
+                            hasInOnly ? 'font-black text-sky-950' : 'text-slate-900'
                           }`}
                           placeholder="اسم الموظف"
                         />
@@ -247,7 +250,7 @@ export const EmployeeAdvancesSection = React.memo(() => {
                           type="time"
                           value={emp.startTime || ''}
                           onChange={(e) => updateData(['employeeAdvances', index, 'startTime'], e.target.value)}
-                          className={`bg-transparent outline-none text-center text-xs sm:text-sm font-bold w-24 sm:w-28 ${
+                          className={`bg-transparent outline-none text-center text-sm sm:text-base font-bold w-24 sm:w-28 ${
                             isOff ? 'text-rose-400 placeholder:text-rose-300' : ''
                           }`}
                         />
@@ -270,7 +273,7 @@ export const EmployeeAdvancesSection = React.memo(() => {
                           type="time"
                           value={emp.endTime || ''}
                           onChange={(e) => updateData(['employeeAdvances', index, 'endTime'], e.target.value)}
-                          className={`bg-transparent outline-none text-center text-xs sm:text-sm font-bold w-24 sm:w-28 ${
+                          className={`bg-transparent outline-none text-center text-sm sm:text-base font-bold w-24 sm:w-28 ${
                             isOff ? 'text-rose-400 placeholder:text-rose-300' : ''
                           }`}
                         />
@@ -292,8 +295,8 @@ export const EmployeeAdvancesSection = React.memo(() => {
                         value={emp.hourlyRate || ''}
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => updateData(['employeeAdvances', index, 'hourlyRate'], Number(e.target.value))}
-                        className={`w-full h-full px-1 py-1.5 bg-transparent outline-none text-center text-xs focus:bg-amber-50/80 focus:font-black focus:text-sm focus:text-indigo-900 transition-all duration-150 ${
-                          isOff ? 'text-rose-400' : ''
+                        className={`w-full h-full px-2 py-2 bg-transparent outline-none text-center text-sm sm:text-base font-black focus:bg-amber-50/80 focus:text-indigo-900 transition-all duration-150 ${
+                          isOff ? 'text-rose-400' : 'text-slate-900'
                         }`}
                         dir="ltr"
                         placeholder="0"
@@ -307,7 +310,7 @@ export const EmployeeAdvancesSection = React.memo(() => {
                         value={emp.amount || ''}
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => updateData(['employeeAdvances', index, 'amount'], Number(e.target.value))}
-                        className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center font-bold text-red-600 focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg transition-all duration-150"
+                        className="w-full h-full px-2 py-2 bg-transparent outline-none text-center font-black text-rose-700 text-sm sm:text-base md:text-lg focus:bg-amber-50/80 transition-all duration-150"
                         dir="ltr"
                         placeholder="0"
                       />
@@ -318,33 +321,63 @@ export const EmployeeAdvancesSection = React.memo(() => {
                         value={emp.notes}
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => updateData(['employeeAdvances', index, 'notes'], e.target.value)}
-                        className={`w-full h-full px-2 py-1.5 bg-transparent outline-none text-center focus:bg-amber-50 focus:font-bold ${
-                          isOff ? 'text-rose-900' : ''
+                        className={`w-full h-full px-3 py-2 bg-transparent outline-none text-center text-sm sm:text-base font-bold focus:bg-amber-50 ${
+                          isOff ? 'text-rose-900' : 'text-slate-900'
                         }`}
                         placeholder={isOff ? "عطلة (OFF)" : "-"}
                       />
                     </td>
-                    <td className="p-1 text-center border border-gray-300 print:hidden">
+                    <td className="p-1 text-center border border-gray-300 print:hidden w-10">
                       <button 
-                        onClick={() => removeEmployee(emp.id)}
-                        className="text-red-500 hover:bg-red-50 p-1 rounded mx-auto block transition-colors"
+                        type="button"
+                        onClick={() => removeEmployee(emp.id || index)}
+                        className="text-red-400 hover:text-red-700 hover:bg-red-50 active:bg-red-100 p-1.5 rounded-md mx-auto flex items-center justify-center transition-all cursor-pointer group"
+                        title="حذف صف الموظف بالكامل"
+                        aria-label="حذف صف الموظف"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={16} className="group-hover:scale-110 transition-transform" />
                       </button>
                     </td>
                   </tr>
                 );
               })}
+              {data.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="py-6 text-center text-gray-500 font-bold text-xs bg-gray-50">
+                    لا يوجد موظفين في الجدول حالياً.
+                    <button 
+                      type="button" 
+                      onClick={addEmployee}
+                      className="mr-2 text-blue-600 hover:underline inline-flex items-center gap-1 font-extrabold cursor-pointer"
+                    >
+                      <Plus size={14} /> اضغط هنا لإضافة موظف
+                    </button>
+                  </td>
+                </tr>
+              )}
               <tr className="bg-gray-100 font-bold border-t border-gray-300">
-                <td colSpan={5} className="px-3 py-2 border border-gray-300 text-center text-gray-800 font-extrabold">إجمالي السلف</td>
-                <td className="px-2 py-2 border border-gray-300 text-center text-red-700 font-black" dir="ltr">
-                  {data.reduce((acc, emp) => acc + (Number(emp.amount) || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                <td colSpan={5} className="px-3 py-2.5 border border-gray-300 text-center text-[#0f172a] font-black text-sm sm:text-base">إجمالي السلف</td>
+                <td className="px-3 py-2.5 border border-gray-300 text-center text-[#be123c] font-black text-sm sm:text-base md:text-lg" dir="ltr">
+                  {data.reduce((acc, emp) => acc + (Number(emp.amount) || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.أ
                 </td>
                 <td colSpan={1} className="border border-gray-300"></td>
                 <td colSpan={1} className="border border-gray-300 print:hidden"></td>
               </tr>
             </tbody>
           </table>
+        </div>
+        <div className="mt-2.5 flex justify-between items-center print:hidden">
+          <button
+            type="button"
+            onClick={addEmployee}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+          >
+            <Plus size={15} />
+            <span>إضافة صف موظف جديد</span>
+          </button>
+          <span className="text-[11px] text-gray-500 font-medium">
+            يتم إعادة ترتيب التسلسل (1، 2، 3...) تلقائياً عند حذف أي صف.
+          </span>
         </div>
       </CardContent>
     </Card>

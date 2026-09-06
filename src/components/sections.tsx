@@ -8,8 +8,8 @@ import { cn } from '../lib/utils';
 
 export const CashDataSection = React.memo(() => {
   const cashAndSales = useShiftStore(state => state.data.cashAndSales);
-  const addCashReceivables = useShiftStore(state => state.data.addCashReceivables) || [];
-  const addNewReceivables = useShiftStore(state => state.data.addNewReceivables) || [];
+  const rawAddCashReceivables = useShiftStore(state => state.data.addCashReceivables);
+  const rawAddNewReceivables = useShiftStore(state => state.data.addNewReceivables);
   const updateData = useShiftStore(state => state.updateData);
   const addLineItem = useShiftStore(state => state.addLineItem);
   const removeLineItem = useShiftStore(state => state.removeLineItem);
@@ -19,10 +19,57 @@ export const CashDataSection = React.memo(() => {
   const clearError = useValidationStore(state => state.clearError);
   const hasError = Boolean(errorMessage);
 
+  // Guarantee at least 1 input row so they are always visible to the user
+  const addNewReceivables = (rawAddNewReceivables && rawAddNewReceivables.length > 0)
+    ? rawAddNewReceivables
+    : [{ id: 'nr-default-1', label: '', amount: 0 }];
+
+  const addCashReceivables = (rawAddCashReceivables && rawAddCashReceivables.length > 0)
+    ? rawAddCashReceivables
+    : [{ id: 'ncr-default-1', label: '', amount: 0 }];
+
   const handleInputChange = (path: (string | number)[], value: any) => {
     updateData(path, value);
     if (errorMessage && (Number(value) > 0 || (path[1] === 'sales' && Number(value) > 0))) {
       clearError('cashData');
+    }
+  };
+
+  const handleNewReceivableUpdate = (index: number, field: 'label' | 'amount', value: any) => {
+    if (!rawAddNewReceivables || rawAddNewReceivables.length === 0) {
+      updateData(['addNewReceivables'], [{ id: 'nr-default-1', label: '', amount: 0, [field]: value }]);
+    } else {
+      updateData(['addNewReceivables', index, field], value);
+    }
+  };
+
+  const handleCashReceivableUpdate = (index: number, field: 'label' | 'amount', value: any) => {
+    if (!rawAddCashReceivables || rawAddCashReceivables.length === 0) {
+      updateData(['addCashReceivables'], [{ id: 'ncr-default-1', label: '', amount: 0, [field]: value }]);
+    } else {
+      updateData(['addCashReceivables', index, field], value);
+    }
+  };
+
+  const handleAddNewItem = () => {
+    if (!rawAddNewReceivables || rawAddNewReceivables.length === 0) {
+      updateData(['addNewReceivables'], [
+        { id: 'nr-default-1', label: '', amount: 0 },
+        { id: Math.random().toString(36).substring(2, 9), label: '', amount: 0 }
+      ]);
+    } else {
+      addLineItem('addNewReceivables');
+    }
+  };
+
+  const handleAddCashItem = () => {
+    if (!rawAddCashReceivables || rawAddCashReceivables.length === 0) {
+      updateData(['addCashReceivables'], [
+        { id: 'ncr-default-1', label: '', amount: 0 },
+        { id: Math.random().toString(36).substring(2, 9), label: '', amount: 0 }
+      ]);
+    } else {
+      addLineItem('addCashReceivables');
     }
   };
 
@@ -38,18 +85,18 @@ export const CashDataSection = React.memo(() => {
       id="cashData" 
       data-empty={isEmpty}
       className={cn(
-        "border-2 border-indigo-400 shadow-sm bg-indigo-50/10",
+        "border-2 border-[#1e1b4b] shadow-sm bg-white",
         hasError && "ring-3 ring-rose-500 border-rose-500 shadow-md shadow-rose-100"
       )}
     >
       <CardHeader 
         title="بيانات الكاش والمبيعات" 
-        headerClassName="bg-indigo-600 text-white border-b border-indigo-700"
+        headerClassName="bg-[#1e1b4b] text-white border-b border-[#0f172a]"
         isError={hasError}
         errorMessage={errorMessage}
         badge={totalCash > 0 ? (
-          <span className="text-xs font-black bg-white text-indigo-900 px-2 py-0.5 rounded-md border border-indigo-200">
-            {totalCash.toLocaleString('en-US')}
+          <span className="text-xs font-black bg-white text-[#1e1b4b] px-2 py-0.5 rounded-md border border-indigo-200">
+            {totalCash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.أ
           </span>
         ) : undefined}
       />
@@ -62,10 +109,10 @@ export const CashDataSection = React.memo(() => {
       )}
 
       <CardContent>
-        <table className="w-full text-xs sm:text-sm text-right border-collapse border border-gray-300">
+        <table className="w-full text-xs sm:text-sm md:text-base text-right border-collapse border border-gray-300 font-tajawal">
           <tbody>
             <tr className="border-b border-gray-300">
-              <td className="px-2 py-1.5 bg-gray-100 border border-gray-300 font-extrabold text-gray-900 w-1/2 text-center">النقد الافتتاحي</td>
+              <td className="px-3 py-2 bg-gray-100 border border-gray-300 font-extrabold text-gray-900 w-1/2 text-center text-sm sm:text-base">النقد الافتتاحي</td>
               <td className="p-0 border border-gray-300">
                 <input
                   type="number"
@@ -75,22 +122,24 @@ export const CashDataSection = React.memo(() => {
                   onFocus={(e) => e.target.select()}
                   onWheel={(e) => e.currentTarget.blur()}
                   onChange={(e) => handleInputChange(['cashAndSales', 'openingCash'], Number(e.target.value))}
-                  className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center font-extrabold text-slate-950 focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg focus:text-indigo-900 transition-all duration-150"
+                  className="w-full h-full px-3 py-2 bg-transparent outline-none text-center font-black text-slate-950 text-sm sm:text-base md:text-lg focus:bg-amber-50/80 focus:text-indigo-900 transition-all duration-150"
                   dir="ltr" placeholder="0"
                 />
               </td>
             </tr>
-            {useShiftStore(state => state.data.addNewReceivables || []).map((item, index, arr) => {
-              const isItemEmpty = !item.label && !item.amount;
+
+            {/* 1. خانة إضافة ذمم جديدة (أولاً فوق تسديد ذمم قديمة) */}
+            {addNewReceivables.map((item, index, arr) => {
+              const isItemEmpty = (!item.label || !item.label.trim()) && (!item.amount || Number(item.amount) === 0);
               return (
                 <tr key={item.id} className={cn("border-b border-gray-300 relative group", isItemEmpty && "print:hidden export-empty-row")}>
                   <td className="p-0 bg-gray-50 border border-gray-300 w-1/2">
                     <div className="flex flex-col sm:flex-row h-full relative">
-                      <div className="relative flex items-center justify-center min-w-[80px] bg-gray-50 px-2 py-1.5 border-b sm:border-b-0 sm:border-r-0 border-gray-300">
+                      <div className="relative flex items-center justify-center min-w-[95px] bg-gray-50 px-2 py-1.5 border-b sm:border-b-0 sm:border-r-0 border-gray-300">
                         {index === 0 && (
                           <button 
-                            onClick={() => addLineItem('addNewReceivables')}
-                            className="absolute top-1 right-1 text-emerald-600 hover:bg-emerald-100 rounded print:hidden cursor-pointer"
+                            onClick={handleAddNewItem}
+                            className="absolute top-1 right-1 text-emerald-600 hover:bg-emerald-100 rounded print:hidden cursor-pointer p-0.5"
                             title="إضافة بند جديد"
                           >
                             <Plus size={14} />
@@ -99,13 +148,13 @@ export const CashDataSection = React.memo(() => {
                         {index > 0 && (
                           <button 
                             onClick={() => removeLineItem('addNewReceivables', item.id)}
-                            className="absolute top-1 right-1 text-red-600 hover:bg-red-100 rounded print:hidden cursor-pointer"
+                            className="absolute top-1 right-1 text-red-600 hover:bg-red-100 rounded print:hidden cursor-pointer p-0.5"
                             title="حذف"
                           >
                             <Trash2 size={14} />
                           </button>
                         )}
-                        <span className="font-bold text-gray-700 whitespace-nowrap text-xs">إضافة ذمم جديدة</span>
+                        <span className="font-extrabold text-gray-800 whitespace-nowrap text-xs sm:text-sm">إضافة ذمم جديدة</span>
                       </div>
                       <input 
                         type="text" 
@@ -120,12 +169,12 @@ export const CashDataSection = React.memo(() => {
                           }
                         }}
                         onChange={(e) => {
-                          updateData(['addNewReceivables', index, 'label'], e.target.value);
+                          handleNewReceivableUpdate(index, 'label', e.target.value);
                           if (index === arr.length - 1 && e.target.value) {
-                            addLineItem('addNewReceivables');
+                            handleAddNewItem();
                           }
                         }} 
-                        className="w-full px-2 py-1 bg-white outline-none border-t sm:border-t-0 sm:border-r border-gray-300 text-xs text-center focus:bg-amber-50 focus:font-bold" 
+                        className="w-full px-2.5 py-1.5 bg-white outline-none border-t sm:border-t-0 sm:border-r border-gray-300 text-xs sm:text-sm text-center font-bold focus:bg-amber-50" 
                         placeholder="البيان..." 
                       />
                     </div>
@@ -143,7 +192,7 @@ export const CashDataSection = React.memo(() => {
                           e.preventDefault();
                           if (index === arr.length - 1) {
                             if (!item.label && !item.amount) return;
-                            addLineItem('addNewReceivables');
+                            handleAddNewItem();
                             setTimeout(() => {
                               const row = (e.target as HTMLElement).closest('tr');
                               const nextRow = row?.nextElementSibling;
@@ -159,29 +208,31 @@ export const CashDataSection = React.memo(() => {
                         }
                       }}
                       onChange={(e) => {
-                        updateData(['addNewReceivables', index, 'amount'], Number(e.target.value));
+                        handleNewReceivableUpdate(index, 'amount', Number(e.target.value));
                         if (index === arr.length - 1 && Number(e.target.value) > 0) {
-                          addLineItem('addNewReceivables');
+                          handleAddNewItem();
                         }
                       }}
-                      className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg focus:text-indigo-900 transition-all duration-150"
+                      className="w-full h-full px-3 py-2 bg-transparent outline-none text-center font-black text-slate-950 text-sm sm:text-base md:text-lg focus:bg-amber-50/80 focus:text-indigo-900 transition-all duration-150"
                       dir="ltr" placeholder="0"
                     />
                   </td>
                 </tr>
               );
             })}
-            {addCashReceivables.map((item, index) => {
-              const isItemEmpty = !item.label && !item.amount;
+
+            {/* 2. خانة تسديد ذمم قديمة (أسفل إضافة ذمم جديدة) */}
+            {addCashReceivables.map((item, index, arr) => {
+              const isItemEmpty = (!item.label || !item.label.trim()) && (!item.amount || Number(item.amount) === 0);
               return (
                 <tr key={item.id} className={cn("border-b border-gray-300 relative group", isItemEmpty && "print:hidden export-empty-row")}>
                   <td className="p-0 bg-gray-50 border border-gray-300 w-1/2">
                     <div className="flex flex-col sm:flex-row h-full relative">
-                      <div className="relative flex items-center justify-center min-w-[80px] bg-gray-50 px-2 py-1.5 border-b sm:border-b-0 sm:border-r-0 border-gray-300">
+                      <div className="relative flex items-center justify-center min-w-[95px] bg-gray-50 px-2 py-1.5 border-b sm:border-b-0 sm:border-r-0 border-gray-300">
                         {index === 0 && (
                           <button 
-                            onClick={() => addLineItem('addCashReceivables')}
-                            className="absolute top-1 right-1 text-emerald-600 hover:bg-emerald-100 rounded print:hidden cursor-pointer"
+                            onClick={handleAddCashItem}
+                            className="absolute top-1 right-1 text-emerald-600 hover:bg-emerald-100 rounded print:hidden cursor-pointer p-0.5"
                             title="إضافة بند جديد"
                           >
                             <Plus size={14} />
@@ -190,13 +241,13 @@ export const CashDataSection = React.memo(() => {
                         {index > 0 && (
                           <button 
                             onClick={() => removeLineItem('addCashReceivables', item.id)}
-                            className="absolute top-1 right-1 text-red-600 hover:bg-red-100 rounded print:hidden cursor-pointer"
+                            className="absolute top-1 right-1 text-red-600 hover:bg-red-100 rounded print:hidden cursor-pointer p-0.5"
                             title="حذف"
                           >
                             <Trash2 size={14} />
                           </button>
                         )}
-                        <span className="font-bold text-gray-700 whitespace-nowrap text-xs">سداد ذمم قديمة</span>
+                        <span className="font-extrabold text-gray-800 whitespace-nowrap text-xs sm:text-sm">تسديد ذمم قديمة</span>
                       </div>
                       <input 
                         type="text" 
@@ -211,12 +262,12 @@ export const CashDataSection = React.memo(() => {
                           }
                         }}
                         onChange={(e) => {
-                          updateData(['addCashReceivables', index, 'label'], e.target.value);
-                          if (index === addCashReceivables.length - 1 && e.target.value) {
-                            addLineItem('addCashReceivables');
+                          handleCashReceivableUpdate(index, 'label', e.target.value);
+                          if (index === arr.length - 1 && e.target.value) {
+                            handleAddCashItem();
                           }
                         }} 
-                        className="w-full px-2 py-1 bg-white outline-none border-t sm:border-t-0 sm:border-r border-gray-300 text-xs text-center focus:bg-amber-50 focus:font-bold" 
+                        className="w-full px-2.5 py-1.5 bg-white outline-none border-t sm:border-t-0 sm:border-r border-gray-300 text-xs sm:text-sm text-center font-bold focus:bg-amber-50" 
                         placeholder="التفاصيل..." 
                       />
                     </div>
@@ -232,9 +283,9 @@ export const CashDataSection = React.memo(() => {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === 'Tab') {
                           e.preventDefault();
-                          if (index === addCashReceivables.length - 1) {
+                          if (index === arr.length - 1) {
                             if (!item.label && !item.amount) return;
-                            addLineItem('addCashReceivables');
+                            handleAddCashItem();
                             setTimeout(() => {
                               const row = (e.target as HTMLElement).closest('tr');
                               const nextRow = row?.nextElementSibling;
@@ -250,12 +301,12 @@ export const CashDataSection = React.memo(() => {
                         }
                       }}
                       onChange={(e) => {
-                        updateData(['addCashReceivables', index, 'amount'], Number(e.target.value));
-                        if (index === addCashReceivables.length - 1 && Number(e.target.value) > 0) {
-                          addLineItem('addCashReceivables');
+                        handleCashReceivableUpdate(index, 'amount', Number(e.target.value));
+                        if (index === arr.length - 1 && Number(e.target.value) > 0) {
+                          handleAddCashItem();
                         }
                       }}
-                      className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg focus:text-indigo-900 transition-all duration-150"
+                      className="w-full h-full px-3 py-2 bg-transparent outline-none text-center font-black text-slate-950 text-sm sm:text-base md:text-lg focus:bg-amber-50/80 focus:text-indigo-900 transition-all duration-150"
                       dir="ltr" placeholder="0"
                     />
                   </td>
@@ -263,7 +314,7 @@ export const CashDataSection = React.memo(() => {
               );
             })}
             <tr className="border-b border-gray-300">
-              <td className="px-2 py-1.5 bg-gray-50 border border-gray-300 font-bold text-gray-700 w-1/2 text-center">مبيعات</td>
+              <td className="px-3 py-2 bg-gray-50 border border-gray-300 font-bold text-gray-800 w-1/2 text-center text-sm sm:text-base">مبيعات</td>
               <td className="p-0 border border-gray-300">
                 <input
                   type="number"
@@ -273,13 +324,13 @@ export const CashDataSection = React.memo(() => {
                   onFocus={(e) => e.target.select()}
                   onWheel={(e) => e.currentTarget.blur()}
                   onChange={(e) => handleInputChange(['cashAndSales', 'sales'], Number(e.target.value))}
-                  className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg focus:text-blue-900 transition-all duration-150"
+                  className="w-full h-full px-3 py-2 bg-transparent outline-none text-center font-black text-slate-950 text-sm sm:text-base md:text-lg focus:bg-amber-50/80 focus:text-blue-900 transition-all duration-150"
                   dir="ltr" placeholder="0"
                 />
               </td>
             </tr>
             <tr className="border-b border-gray-300">
-              <td className="px-2 py-1.5 bg-gray-50 border border-gray-300 font-bold text-gray-700 w-1/2 text-center">مبيعات أخرى</td>
+              <td className="px-3 py-2 bg-gray-50 border border-gray-300 font-bold text-gray-800 w-1/2 text-center text-sm sm:text-base">مبيعات أخرى</td>
               <td className="p-0 border border-gray-300">
                 <input
                   type="number"
@@ -289,14 +340,16 @@ export const CashDataSection = React.memo(() => {
                   onFocus={(e) => e.target.select()}
                   onWheel={(e) => e.currentTarget.blur()}
                   onChange={(e) => handleInputChange(['cashAndSales', 'otherSales'], Number(e.target.value))}
-                  className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg focus:text-indigo-900 transition-all duration-150"
+                  className="w-full h-full px-3 py-2 bg-transparent outline-none text-center font-black text-slate-950 text-sm sm:text-base md:text-lg focus:bg-amber-50/80 focus:text-indigo-900 transition-all duration-150"
                   dir="ltr" placeholder="0"
                 />
               </td>
             </tr>
             <tr className="border-b border-gray-300 bg-gray-100 font-bold">
-              <td className="px-2 py-2 border border-gray-300 text-gray-900 text-center text-sm">مجموع الكاش</td>
-              <td className="px-2 py-2 border border-gray-300 text-center text-sm font-black" dir="ltr">{totalCash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td className="px-3 py-2.5 border border-gray-300 text-gray-950 text-center text-sm sm:text-base font-black">مجموع الكاش</td>
+              <td className="px-3 py-2.5 border border-gray-300 text-center text-sm sm:text-base font-black text-[#1e1b4b]" dir="ltr">
+                {totalCash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.أ
+              </td>
             </tr>
           </tbody>
         </table>
@@ -336,29 +389,62 @@ export const ActualInventorySection = React.memo(() => {
   const clearError = useValidationStore(state => state.clearError);
   const hasError = Boolean(errorMessage);
 
-  const handleInputChange = (fieldKey: string, value: number) => {
+  const handleInputChange = (fieldKey: string, value: any) => {
     updateData(['actualInventory', fieldKey], value);
     if (errorMessage && value > 0) {
       clearError('actualInventory');
     }
   };
 
-  // الإسناد لكاشير واحد بكامل المبلغ
-  const handleAssignSingle = (selectedName: string) => {
+  // الإسناد لكاشير واحد بكامل المبلغ مع تحديد الشفت
+  const handleAssignSingle = (selectedName: string, shiftLabel: 'صباحي' | 'مسائي' | 'كامل اليوم' = 'مسائي') => {
     if (!selectedName) return;
-    updateData(['shiftDifferences', 'morning'], {
-      cashierName: '',
-      type: 'exact',
-      amount: 0,
-      notes: ''
-    });
-    updateData(['shiftDifferences', 'evening'], {
-      cashierName: selectedName,
-      type: totalDiffType,
-      amount: totalDiffAmount,
-      notes: 'مسائي'
-    });
-    updateData(['cashierName'], selectedName);
+    const isQusay = selectedName.includes('قصي');
+    const otherName = isQusay ? 'أمجد شحادات' : 'قصي البدور';
+
+    if (shiftLabel === 'صباحي') {
+      updateData(['shiftDifferences', 'morning'], {
+        cashierName: selectedName,
+        type: totalDiffType,
+        amount: totalDiffAmount,
+        notes: 'صباحي'
+      });
+      updateData(['shiftDifferences', 'evening'], {
+        cashierName: otherName,
+        type: 'exact',
+        amount: 0,
+        notes: 'مسائي'
+      });
+      updateData(['cashierName'], `${selectedName} (صباحي)`);
+    } else if (shiftLabel === 'مسائي') {
+      updateData(['shiftDifferences', 'morning'], {
+        cashierName: otherName,
+        type: 'exact',
+        amount: 0,
+        notes: 'صباحي'
+      });
+      updateData(['shiftDifferences', 'evening'], {
+        cashierName: selectedName,
+        type: totalDiffType,
+        amount: totalDiffAmount,
+        notes: 'مسائي'
+      });
+      updateData(['cashierName'], `${selectedName} (مسائي)`);
+    } else {
+      updateData(['shiftDifferences', 'morning'], {
+        cashierName: otherName,
+        type: 'exact',
+        amount: 0,
+        notes: 'صباحي'
+      });
+      updateData(['shiftDifferences', 'evening'], {
+        cashierName: selectedName,
+        type: totalDiffType,
+        amount: totalDiffAmount,
+        notes: 'كامل اليوم'
+      });
+      updateData(['cashierName'], selectedName);
+    }
   };
 
   // الإسناد والتقسيم بالتساوي 50% / 50%
@@ -366,34 +452,56 @@ export const ActualInventorySection = React.memo(() => {
     const half = Number((totalDiffAmount / 2).toFixed(2));
     const remainder = Number((totalDiffAmount - half).toFixed(2));
     const c1 = morningDiff.cashierName || 'قصي البدور';
-    const c2 = eveningDiff.cashierName || cashierName || 'أمجد شحادات';
+    const c2 = eveningDiff.cashierName || cashierName?.replace(/\s*\(.*?\)/, '') || 'أمجد شحادات';
 
     updateData(['shiftDifferences', 'morning'], {
       cashierName: c1,
       type: totalDiffType,
       amount: half,
-      notes: 'تقسيم'
+      notes: 'صباحي'
     });
     updateData(['shiftDifferences', 'evening'], {
       cashierName: c2,
       type: totalDiffType,
       amount: remainder,
-      notes: 'تقسيم'
+      notes: 'مسائي'
     });
-    updateData(['cashierName'], `${c1} (${half}) + ${c2} (${remainder})`);
+    updateData(['cashierName'], `${c1} (${half} د.أ صباحي) + ${c2} (${remainder} د.أ مسائي)`);
   };
 
-  // وضع باقي المبلغ على كاشير 2
-  const handleAssignRemainderToC2 = () => {
-    const c1Amount = morningDiff.amount || 0;
-    const remainder = Math.max(0, Number((totalDiffAmount - c1Amount).toFixed(2)));
-    const c2 = eveningDiff.cashierName || cashierName || 'أمجد شحادات';
+  // تبديل الكاشيرية بين الشفت الصباحي والمسائي بضغطة واحدة
+  const handleSwapCashiers = () => {
+    const c1 = morningDiff.cashierName || 'قصي البدور';
+    const c2 = eveningDiff.cashierName || 'أمجد شحادات';
+    updateData(['shiftDifferences', 'morning', 'cashierName'], c2);
+    updateData(['shiftDifferences', 'evening', 'cashierName'], c1);
+  };
+
+  // وضع باقي المبلغ على كاشير الشفت المسائي
+  const handleAssignRemainderToEvening = () => {
+    const mAmount = morningDiff.amount || 0;
+    const remainder = Math.max(0, Number((totalDiffAmount - mAmount).toFixed(2)));
+    const c2 = eveningDiff.cashierName || 'أمجد شحادات';
 
     updateData(['shiftDifferences', 'evening'], {
       cashierName: c2,
       type: totalDiffType,
       amount: remainder,
-      notes: 'تقسيم'
+      notes: 'مسائي'
+    });
+  };
+
+  // وضع باقي المبلغ على كاشير الشفت الصباحي
+  const handleAssignRemainderToMorning = () => {
+    const eAmount = eveningDiff.amount || 0;
+    const remainder = Math.max(0, Number((totalDiffAmount - eAmount).toFixed(2)));
+    const c1 = morningDiff.cashierName || 'قصي البدور';
+
+    updateData(['shiftDifferences', 'morning'], {
+      cashierName: c1,
+      type: totalDiffType,
+      amount: remainder,
+      notes: 'صباحي'
     });
   };
 
@@ -472,18 +580,18 @@ export const ActualInventorySection = React.memo(() => {
       id="actualInventory"
       data-empty={isEmpty}
       className={cn(
-        "border-2 border-emerald-400 shadow-sm bg-emerald-50/10",
+        "border-2 border-[#1e1b4b] shadow-sm bg-white",
         hasError && "ring-3 ring-rose-500 border-rose-500 shadow-md shadow-rose-100"
       )}
     >
       <CardHeader 
         title="ملخص الجرد الفعلي" 
-        headerClassName="bg-emerald-600 text-white border-b border-emerald-700"
+        headerClassName="bg-[#1e1b4b] text-white border-b border-[#0f172a]"
         isError={hasError}
         errorMessage={errorMessage}
         badge={calc.totalInventory > 0 ? (
-          <span className="text-xs font-black bg-white text-emerald-900 px-2 py-0.5 rounded-md border border-emerald-200">
-            {calc.totalInventory.toLocaleString('en-US')}
+          <span className="text-xs font-black bg-white text-[#1e1b4b] px-2 py-0.5 rounded-md border border-indigo-200">
+            {calc.totalInventory.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.أ
           </span>
         ) : undefined}
       />
@@ -496,18 +604,18 @@ export const ActualInventorySection = React.memo(() => {
       )}
 
       <CardContent>
-        <table className="w-full text-xs sm:text-sm text-right border-collapse border border-gray-300">
+        <table className="w-full text-sm sm:text-base text-right border-collapse border border-gray-300 font-tajawal">
           <tbody>
             {inputFields.map(field => (
               <tr key={field.key} className="border-b border-gray-300">
                 <td 
                   onClick={() => scrollToTable(field.targetId)}
-                  className="px-2 py-1.5 bg-gray-50 border border-gray-300 font-bold text-gray-700 w-1/2 text-center cursor-pointer hover:bg-indigo-100/60 transition-colors group"
+                  className="px-3 py-2 bg-gray-50 border border-gray-300 font-extrabold text-gray-800 w-1/2 text-center cursor-pointer hover:bg-indigo-100/60 transition-colors group text-sm sm:text-base"
                   title={`انقر للانتقال إلى جدول ${field.label}`}
                 >
                   <div className="flex items-center justify-center gap-1">
                     <span>{field.label}</span>
-                    <ExternalLink size={11} className="text-indigo-500 opacity-40 group-hover:opacity-100 print:hidden shrink-0" />
+                    <ExternalLink size={12} className="text-indigo-500 opacity-40 group-hover:opacity-100 print:hidden shrink-0" />
                   </div>
                 </td>
                 <td className="p-0 border border-gray-300">
@@ -515,13 +623,20 @@ export const ActualInventorySection = React.memo(() => {
                     type="number"
                     inputMode="decimal"
                     pattern="[0-9]*"
-                    value={data[field.key as keyof typeof data] || ''}
+                    value={data[field.key as keyof typeof data] !== undefined && data[field.key as keyof typeof data] !== null ? data[field.key as keyof typeof data] : ''}
                     onFocus={(e) => e.target.select()}
                     onWheel={(e) => e.currentTarget.blur()}
-                    onChange={(e) => handleInputChange(field.key, Number(e.target.value))}
-                    className="w-full h-full px-2 py-1.5 bg-transparent outline-none text-center focus:bg-amber-50/80 focus:font-black focus:text-base sm:focus:text-lg focus:text-indigo-900 transition-all duration-150"
+                    onChange={(e) => {
+                      const rawVal = e.target.value;
+                      if (rawVal === '') {
+                        handleInputChange(field.key, field.key === 'advances' ? null : 0);
+                      } else {
+                        handleInputChange(field.key, Number(rawVal));
+                      }
+                    }}
+                    className="w-full h-full px-3 py-2 bg-transparent outline-none text-center font-black text-slate-950 text-sm sm:text-base md:text-lg focus:bg-amber-50/80 focus:text-indigo-900 transition-all duration-150"
                     dir="ltr"
-                    placeholder="0"
+                    placeholder={field.key === 'advances' && calc.advancesTotal > 0 ? String(calc.advancesTotal) : "0"}
                   />
                 </td>
               </tr>
@@ -529,16 +644,16 @@ export const ActualInventorySection = React.memo(() => {
             <tr className="border-b border-gray-300 hover:bg-indigo-50/80 transition-colors group">
               <td 
                 onClick={() => scrollToTable('ewallet')}
-                className="px-2 py-1.5 bg-gray-50 group-hover:bg-indigo-100/60 border border-gray-300 font-bold text-gray-700 text-center cursor-pointer"
+                className="px-3 py-2 bg-gray-50 group-hover:bg-indigo-100/60 border border-gray-300 font-extrabold text-gray-800 text-center cursor-pointer text-sm sm:text-base"
                 title="انقر للانتقال لمعاينة جدول المحفظة الإلكترونية"
               >
                 <div className="flex items-center justify-center gap-1">
                   <span>المحفظة</span>
-                  <ExternalLink size={11} className="text-indigo-500 opacity-40 group-hover:opacity-100 print:hidden shrink-0" />
+                  <ExternalLink size={12} className="text-indigo-500 opacity-40 group-hover:opacity-100 print:hidden shrink-0" />
                 </div>
               </td>
-              <td className="p-2 border border-gray-300 text-center font-bold text-indigo-900 bg-indigo-50/30" dir="ltr">
-                {calc.ewalletTotal > 0 ? calc.ewalletTotal.toLocaleString('en-US') : '0'}
+              <td className="px-3 py-2 border border-gray-300 text-center font-black text-indigo-900 bg-indigo-50/30 text-sm sm:text-base md:text-lg" dir="ltr">
+                {calc.ewalletTotal > 0 ? calc.ewalletTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'} د.أ
               </td>
             </tr>
             {displayFields.map((field, idx) => {
@@ -558,7 +673,7 @@ export const ActualInventorySection = React.memo(() => {
                   <td 
                     onClick={() => scrollToTable(field.targetId)}
                     className={cn(
-                      "px-2 py-1.5 bg-gray-50 group-hover:bg-indigo-100/60 border border-gray-300 font-bold text-gray-700 text-center cursor-pointer",
+                      "px-3 py-2 bg-gray-50 group-hover:bg-indigo-100/60 border border-gray-300 font-extrabold text-gray-800 text-center cursor-pointer text-sm sm:text-base",
                       hasMismatch && "bg-rose-50 group-hover:bg-rose-100 text-rose-700"
                     )}
                     title={`انقر للانتقال لمعاينة بيانات جدول ${field.label}`}
@@ -566,10 +681,10 @@ export const ActualInventorySection = React.memo(() => {
                     <div className="flex flex-col items-center justify-center gap-1">
                       <div className="flex items-center gap-1">
                         <span>{field.label}</span>
-                        <ExternalLink size={11} className={cn("opacity-40 group-hover:opacity-100 print:hidden shrink-0", hasMismatch ? "text-rose-500" : "text-indigo-500")} />
+                        <ExternalLink size={12} className={cn("opacity-40 group-hover:opacity-100 print:hidden shrink-0", hasMismatch ? "text-rose-500" : "text-indigo-500")} />
                       </div>
                       {hasMismatch && (
-                        <span className="text-[9px] text-rose-600 font-black print:hidden">
+                        <span className="text-[10px] text-rose-600 font-black print:hidden">
                           (يوجد فرق)
                         </span>
                       )}
@@ -589,9 +704,8 @@ export const ActualInventorySection = React.memo(() => {
                         handleInputChange(field.manualKey, newManual);
                       }}
                       className={cn(
-                        "w-full h-full px-2 py-1.5 bg-transparent outline-none text-center font-black transition-all duration-150",
+                        "w-full h-full px-3 py-2 bg-transparent outline-none text-center font-black transition-all duration-150 text-sm sm:text-base md:text-lg",
                         hasMismatch ? "text-rose-700 focus:bg-rose-100" : "text-indigo-900 focus:bg-amber-50/80",
-                        "focus:text-base sm:focus:text-lg"
                       )}
                       dir="ltr"
                       placeholder="0"
@@ -617,33 +731,39 @@ export const ActualInventorySection = React.memo(() => {
               className="border-b border-gray-300 font-bold bg-gray-100 hover:bg-indigo-100/40 cursor-pointer transition-colors"
               title="مجموع الجرد الفعلي الإجمالي"
             >
-              <td className="px-2 py-2 border border-gray-300 text-gray-900 text-center text-sm">مجموع الجرد</td>
-              <td className="px-2 py-2 border border-gray-300 text-center text-sm font-black text-indigo-900" dir="ltr">{calc.totalInventory.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td className="px-3 py-2.5 border border-gray-300 text-gray-950 text-center text-sm sm:text-base font-black">مجموع الجرد</td>
+              <td className="px-3 py-2.5 border border-gray-300 text-center text-sm sm:text-base font-black text-[#1e1b4b]" dir="ltr">
+                {calc.totalInventory.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.أ
+              </td>
             </tr>
             <tr 
               onClick={() => scrollToTable('cashData')}
               className={cn(
-                "border-b border-gray-300 font-bold text-red-700 bg-red-50 hover:bg-red-100/80 cursor-pointer transition-colors",
-                calc.cashShortage > 0 && "bg-rose-100/80 text-rose-800"
+                "border-b border-gray-300 font-bold transition-colors cursor-pointer",
+                calc.cashShortage > 0 
+                  ? "bg-[#fff1f2] text-[#be123c] border-[#be123c]/40 hover:bg-rose-100" 
+                  : "bg-gray-50 text-slate-500 hover:bg-gray-100"
               )}
               title="انقر للانتقال لجدول بيانات الكاش والمبيعات"
             >
-              <td className="px-2 py-2 border border-gray-300 text-center">
+              <td className="px-3 py-2.5 border border-gray-300 text-center">
                 <div className="flex flex-col items-center justify-center gap-0.5">
-                  <span>نقص الكاش</span>
+                  <span className={cn("text-sm sm:text-base", calc.cashShortage > 0 ? "text-[#be123c] font-black" : "text-slate-600 font-bold")}>نقص الكاش (عجز)</span>
                   {calc.cashShortage > 0 && (
-                    <span className={cn("text-[11px] font-extrabold", cashierName ? "text-rose-900" : "text-rose-600 animate-pulse")}>
+                    <span className={cn("text-xs font-black", cashierName ? "text-[#be123c]" : "text-rose-600 animate-pulse")}>
                       {cashierName ? `(${cashierName})` : '⚠️ يرجى تحديد اسم الكاشير بالأسفل'}
                     </span>
                   )}
                 </div>
               </td>
-              <td className="px-2 py-2 border border-gray-300 text-center font-black" dir="ltr">
+              <td className="px-3 py-2.5 border border-gray-300 text-center font-black" dir="ltr">
                 {calc.cashShortage > 0 ? (
                   <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                    <span className="text-sm font-black text-rose-700">-{calc.cashShortage.toFixed(2)}</span>
+                    <span className="text-sm sm:text-base md:text-lg font-black text-[#be123c]">
+                      -{calc.cashShortage.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.أ
+                    </span>
                     {cashierName && (
-                      <span className="text-xs font-bold text-rose-900 bg-rose-200/70 px-1.5 py-0.5 rounded border border-rose-300">
+                      <span className="text-xs font-bold text-[#be123c] bg-rose-100 px-1.5 py-0.5 rounded border border-rose-300">
                         ({cashierName})
                       </span>
                     )}
@@ -654,27 +774,31 @@ export const ActualInventorySection = React.memo(() => {
             <tr 
               onClick={() => scrollToTable('cashData')}
               className={cn(
-                "border-b border-gray-300 font-bold text-green-700 bg-green-50 hover:bg-green-100/80 cursor-pointer transition-colors",
-                calc.cashSurplus > 0 && "bg-emerald-100/80 text-emerald-900"
+                "border-b border-gray-300 font-bold transition-colors cursor-pointer",
+                calc.cashSurplus > 0 
+                  ? "bg-[#ecfdf5] text-[#047857] border-[#047857]/40 hover:bg-emerald-100" 
+                  : "bg-gray-50 text-slate-500 hover:bg-gray-100"
               )}
               title="انقر للانتقال لجدول بيانات الكاش والمبيعات"
             >
-              <td className="px-2 py-2 border border-gray-300 text-center">
+              <td className="px-3 py-2.5 border border-gray-300 text-center">
                 <div className="flex flex-col items-center justify-center gap-0.5">
-                  <span>زيادة الكاش</span>
+                  <span className={cn("text-sm sm:text-base", calc.cashSurplus > 0 ? "text-[#047857] font-black" : "text-slate-600 font-bold")}>زيادة الكاش (فائض)</span>
                   {calc.cashSurplus > 0 && (
-                    <span className={cn("text-[11px] font-extrabold", cashierName ? "text-emerald-900" : "text-emerald-700 animate-pulse")}>
+                    <span className={cn("text-xs font-black", cashierName ? "text-[#047857]" : "text-emerald-700 animate-pulse")}>
                       {cashierName ? `(${cashierName})` : '⚠️ يرجى تحديد اسم الكاشير بالأسفل'}
                     </span>
                   )}
                 </div>
               </td>
-              <td className="px-2 py-2 border border-gray-300 text-center font-black" dir="ltr">
+              <td className="px-3 py-2.5 border border-gray-300 text-center font-black" dir="ltr">
                 {calc.cashSurplus > 0 ? (
                   <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                    <span className="text-sm font-black text-emerald-700">+{calc.cashSurplus.toFixed(2)}</span>
+                    <span className="text-sm sm:text-base md:text-lg font-black text-[#047857]">
+                      +{calc.cashSurplus.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.أ
+                    </span>
                     {cashierName && (
-                      <span className="text-xs font-bold text-emerald-900 bg-emerald-200/70 px-1.5 py-0.5 rounded border border-emerald-300">
+                      <span className="text-xs font-bold text-[#047857] bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300">
                         ({cashierName})
                       </span>
                     )}
@@ -687,13 +811,13 @@ export const ActualInventorySection = React.memo(() => {
               <>
                 {morningDiff.amount > 0 && eveningDiff.amount > 0 ? (
                   <>
-                    {/* صف كاشير 1 */}
+                    {/* صف كاشير الشفت الصباحي */}
                     <tr className="bg-amber-50/80 border-b border-gray-300 font-bold text-xs sm:text-sm">
                       <td className="px-2 py-2 border border-gray-300 text-center">
                         <div className="flex flex-col items-center justify-center gap-0.5">
-                          <span className="text-amber-950 font-black">👤 كاشير 1 ({morningDiff.cashierName || 'غير محدد'})</span>
+                          <span className="text-amber-950 font-black">☀️ كاشير الشفت الصباحي ({morningDiff.cashierName || 'غير محدد'})</span>
                           <span className="text-[10px] text-amber-800">
-                            {morningDiff.notes === 'تقسيم' ? 'حصة التقسيم' : 'الشفت الصباحي'}
+                            {morningDiff.notes || 'شفت صباحي'}
                           </span>
                         </div>
                       </td>
@@ -702,18 +826,18 @@ export const ActualInventorySection = React.memo(() => {
                           "px-2 py-0.5 rounded text-xs sm:text-sm font-black inline-block",
                           morningDiff.type === 'shortage' ? "text-rose-700 bg-rose-100 border border-rose-300" : "text-emerald-700 bg-emerald-100 border border-emerald-300"
                         )}>
-                          {morningDiff.type === 'shortage' ? '-' : '+'}{morningDiff.amount.toFixed(2)} د.أ ({morningDiff.type === 'shortage' ? 'عجز' : 'زيادة'})
+                          {morningDiff.type === 'shortage' ? '-' : '+'}{morningDiff.amount.toFixed(2)} د.أ ({morningDiff.type === 'shortage' ? 'عجز صباحي' : 'زيادة صباحية'})
                         </span>
                       </td>
                     </tr>
 
-                    {/* صف كاشير 2 */}
+                    {/* صف كاشير الشفت المسائي */}
                     <tr className="bg-indigo-50/80 border-b border-gray-300 font-bold text-xs sm:text-sm">
                       <td className="px-2 py-2 border border-gray-300 text-center">
                         <div className="flex flex-col items-center justify-center gap-0.5">
-                          <span className="text-indigo-950 font-black">👤 كاشير 2 ({eveningDiff.cashierName || cashierName || 'غير محدد'})</span>
+                          <span className="text-indigo-950 font-black">🌙 كاشير الشفت المسائي ({eveningDiff.cashierName || cashierName || 'غير محدد'})</span>
                           <span className="text-[10px] text-indigo-800">
-                            {eveningDiff.notes === 'تقسيم' ? 'حصة التقسيم' : 'الشفت المسائي'}
+                            {eveningDiff.notes || 'شفت مسائي'}
                           </span>
                         </div>
                       </td>
@@ -722,13 +846,13 @@ export const ActualInventorySection = React.memo(() => {
                           "px-2 py-0.5 rounded text-xs sm:text-sm font-black inline-block",
                           eveningDiff.type === 'shortage' ? "text-rose-700 bg-rose-100 border border-rose-300" : "text-emerald-700 bg-emerald-100 border border-emerald-300"
                         )}>
-                          {eveningDiff.type === 'shortage' ? '-' : '+'}{eveningDiff.amount.toFixed(2)} د.أ ({eveningDiff.type === 'shortage' ? 'عجز' : 'زيادة'})
+                          {eveningDiff.type === 'shortage' ? '-' : '+'}{eveningDiff.amount.toFixed(2)} د.أ ({eveningDiff.type === 'shortage' ? 'عجز مسائي' : 'زيادة مسائية'})
                         </span>
                       </td>
                     </tr>
                   </>
                 ) : (
-                  /* صف الكاشير الوحيد المسؤول عن كامل المبلغ */
+                  /* صف الكاشير المسؤول عن كامل المبلغ */
                   <tr className="bg-rose-50/70 border-b border-gray-300 font-bold text-xs sm:text-sm">
                     <td className="px-2 py-2 border border-gray-300 text-center">
                       <div className="flex flex-col items-center justify-center gap-0.5">
@@ -736,7 +860,7 @@ export const ActualInventorySection = React.memo(() => {
                           👤 الكاشير المسؤول: {eveningDiff.cashierName || morningDiff.cashierName || cashierName || 'غير محدد'}
                         </span>
                         <span className="text-[10px] text-rose-800">
-                          (كامل المبلغ مسجل على كاشير واحد)
+                          ({morningDiff.amount > 0 ? 'الشفت الصباحي' : eveningDiff.notes === 'صباحي' ? 'الشفت الصباحي' : eveningDiff.notes === 'كامل اليوم' ? 'كامل اليوم' : 'الشفت المسائي'})
                         </span>
                       </div>
                     </td>
@@ -752,11 +876,11 @@ export const ActualInventorySection = React.memo(() => {
                 )}
               </>
             ) : (
-              <tr className="bg-emerald-50/60 text-emerald-900 font-semibold border-b border-gray-300">
+              <tr className="bg-[#ecfdf5] text-[#047857] font-semibold border-b border-gray-300">
                 <td colSpan={2} className="px-3 py-2 text-center text-xs">
-                  <span className="inline-flex items-center justify-center gap-1.5 font-bold text-emerald-800">
-                    <span className="text-sm">✨</span>
-                    <span>الكاش مطابق تماماً (لا يوجد نقص أو زيادة) — لا يتطلب تحديد الكاشير</span>
+                  <span className="inline-flex items-center justify-center gap-1.5 font-black text-[#047857]">
+                    <span className="text-sm">✓</span>
+                    <span>الكاش مطابق تماماً (0.00 د.أ) — لا يوجد نقص أو زيادة</span>
                   </span>
                 </td>
               </tr>
@@ -772,7 +896,7 @@ export const ActualInventorySection = React.memo(() => {
               <div className="flex items-center gap-2">
                 <span className="text-sm font-black text-indigo-950 flex items-center gap-1.5">
                   <span>📝</span>
-                  <span>تحديد الكاشير المسؤول مساءً:</span>
+                  <span>تحديد الكاشير والشفت للفارق المالي:</span>
                 </span>
                 <span className={cn(
                   "text-xs font-black px-2 py-0.5 rounded-full border",
@@ -782,23 +906,24 @@ export const ActualInventorySection = React.memo(() => {
                 </span>
               </div>
 
-              {/* أزرار التبديل بين كاشير واحد أو كاشيرين */}
+              {/* أزرار التبديل: كاشير واحد أم الكاشيرين مجتمعين */}
               <div className="flex items-center bg-white p-1 rounded-xl border border-indigo-200 shadow-xs">
                 <button
                   type="button"
                   onClick={() => {
                     setAssignMode('single');
-                    const c = eveningDiff.cashierName || morningDiff.cashierName || cashierName || 'قصي البدور';
-                    handleAssignSingle(c);
+                    const currentC = morningDiff.amount > 0 ? morningDiff.cashierName : (eveningDiff.cashierName || 'قصي البدور');
+                    const currentS = morningDiff.amount > 0 ? 'صباحي' : 'مسائي';
+                    handleAssignSingle(currentC || 'قصي البدور', currentS);
                   }}
                   className={cn(
-                    "px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                    "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
                     assignMode === 'single'
                       ? "bg-indigo-600 text-white shadow-xs font-extrabold"
                       : "text-gray-600 hover:text-indigo-700"
                   )}
                 >
-                  👤 كاشير واحد (كامل المبلغ)
+                  👤 عند أحد الكاشيرين (كامل المبلغ)
                 </button>
                 <button
                   type="button"
@@ -809,88 +934,127 @@ export const ActualInventorySection = React.memo(() => {
                     }
                   }}
                   className={cn(
-                    "px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                    "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
                     assignMode === 'split'
                       ? "bg-indigo-600 text-white shadow-xs font-extrabold"
                       : "text-gray-600 hover:text-indigo-700"
                   )}
                 >
-                  👥 تقسيم بين كاشيرين
+                  👥 عند الكاشيرين مجتمعين (تحديد مبلغ كل كاشير)
                 </button>
               </div>
             </div>
 
-            {/* الوضع الأول: كاشير واحد (كامل المبلغ) */}
+            {/* الوضع 1: عند أحد الكاشيرين (كامل المبلغ على كاشير وشفت محدد) */}
             {assignMode === 'single' ? (
-              <div className="bg-white p-3.5 border border-indigo-200 rounded-xl space-y-3 shadow-xs">
-                <div className="text-xs font-bold text-gray-700 flex items-center gap-1">
-                  <span>👈 اختر الكاشير لتحميل كامل المبلغ عليه ({totalDiffAmount.toFixed(2)} د.أ {totalDiffType === 'shortage' ? 'عجز' : 'زيادة'}):</span>
+              <div className="bg-white p-4 border border-indigo-200 rounded-xl space-y-3 shadow-xs">
+                <div className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                  <span>👉</span>
+                  <span>اختر الكاشير والشفت الذي ظهر عنده {totalDiffType === 'shortage' ? 'النقص' : 'الزيادة'} ({totalDiffAmount.toFixed(2)} د.أ):</span>
                 </div>
 
-                {/* أزرار سريعة للاختيار المباشر */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {/* قصي صباحي */}
                   <button
                     type="button"
-                    onClick={() => handleAssignSingle('قصي البدور')}
+                    onClick={() => handleAssignSingle('قصي البدور', 'صباحي')}
                     className={cn(
-                      "p-3 rounded-xl border-2 text-right transition-all flex items-center justify-between cursor-pointer",
-                      (eveningDiff.cashierName === 'قصي البدور' || cashierName === 'قصي البدور') && eveningDiff.amount > 0 && morningDiff.amount <= 0
-                        ? "bg-indigo-50 border-indigo-500 text-indigo-950 font-black ring-2 ring-indigo-200"
-                        : "bg-gray-50/70 border-gray-200 hover:bg-gray-100 text-gray-800"
+                      "p-3 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer",
+                      (morningDiff.cashierName === 'قصي البدور' && morningDiff.amount > 0)
+                        ? "bg-amber-50 border-amber-500 text-amber-950 font-black ring-2 ring-amber-300 shadow-xs"
+                        : "bg-gray-50/80 border-gray-200 hover:bg-amber-50/50 text-gray-800"
                     )}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">👤</span>
-                      <span className="text-sm font-bold">قصي البدور</span>
-                    </div>
-                    <span className="text-xs font-black text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">
-                      كامل {totalDiffAmount.toFixed(2)} د.أ
-                    </span>
+                    <span className="text-sm font-black">☀️ قصي البدور</span>
+                    <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">شفت صباحي</span>
                   </button>
 
+                  {/* قصي مسائي */}
                   <button
                     type="button"
-                    onClick={() => handleAssignSingle('أمجد شحادات')}
+                    onClick={() => handleAssignSingle('قصي البدور', 'مسائي')}
                     className={cn(
-                      "p-3 rounded-xl border-2 text-right transition-all flex items-center justify-between cursor-pointer",
-                      (eveningDiff.cashierName === 'أمجد شحادات' || cashierName === 'أمجد شحادات') && eveningDiff.amount > 0 && morningDiff.amount <= 0
-                        ? "bg-indigo-50 border-indigo-500 text-indigo-950 font-black ring-2 ring-indigo-200"
-                        : "bg-gray-50/70 border-gray-200 hover:bg-gray-100 text-gray-800"
+                      "p-3 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer",
+                      (eveningDiff.cashierName === 'قصي البدور' && eveningDiff.amount > 0)
+                        ? "bg-indigo-50 border-indigo-500 text-indigo-950 font-black ring-2 ring-indigo-300 shadow-xs"
+                        : "bg-gray-50/80 border-gray-200 hover:bg-indigo-50/50 text-gray-800"
                     )}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">👤</span>
-                      <span className="text-sm font-bold">أمجد شحادات</span>
-                    </div>
-                    <span className="text-xs font-black text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">
-                      كامل {totalDiffAmount.toFixed(2)} د.أ
-                    </span>
+                    <span className="text-sm font-black">🌙 قصي البدور</span>
+                    <span className="text-[11px] font-bold text-indigo-800 bg-indigo-100 px-2 py-0.5 rounded">شفت مسائي</span>
+                  </button>
+
+                  {/* أمجد صباحي */}
+                  <button
+                    type="button"
+                    onClick={() => handleAssignSingle('أمجد شحادات', 'صباحي')}
+                    className={cn(
+                      "p-3 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer",
+                      (morningDiff.cashierName === 'أمجد شحادات' && morningDiff.amount > 0)
+                        ? "bg-amber-50 border-amber-500 text-amber-950 font-black ring-2 ring-amber-300 shadow-xs"
+                        : "bg-gray-50/80 border-gray-200 hover:bg-amber-50/50 text-gray-800"
+                    )}
+                  >
+                    <span className="text-sm font-black">☀️ أمجد شحادات</span>
+                    <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">شفت صباحي</span>
+                  </button>
+
+                  {/* أمجد مسائي */}
+                  <button
+                    type="button"
+                    onClick={() => handleAssignSingle('أمجد شحادات', 'مسائي')}
+                    className={cn(
+                      "p-3 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer",
+                      (eveningDiff.cashierName === 'أمجد شحادات' && eveningDiff.amount > 0)
+                        ? "bg-indigo-50 border-indigo-500 text-indigo-950 font-black ring-2 ring-indigo-300 shadow-xs"
+                        : "bg-gray-50/80 border-gray-200 hover:bg-indigo-50/50 text-gray-800"
+                    )}
+                  >
+                    <span className="text-sm font-black">🌙 أمجد شحادات</span>
+                    <span className="text-[11px] font-bold text-indigo-800 bg-indigo-100 px-2 py-0.5 rounded">شفت مسائي</span>
                   </button>
                 </div>
 
-                {/* بطاقة التوثيق الحالية */}
+                {/* بطاقة التوثيق الحالية عند اختيار كاشير واحد */}
                 <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between flex-wrap gap-2 text-xs">
                   <div className="flex items-center gap-1.5 text-emerald-950 font-bold">
                     <span className="text-emerald-600">✅</span>
-                    <span>الكاشير المسجل حالياً: <strong className="text-emerald-900 font-black">{eveningDiff.cashierName || cashierName || 'يرجى الاختيار'}</strong></span>
+                    <span>
+                      الكاشير والشفت المسجل:{' '}
+                      <strong className="text-emerald-900 font-black">
+                        {morningDiff.amount > 0 
+                          ? `${morningDiff.cashierName} (شفت صباحي)` 
+                          : eveningDiff.amount > 0 
+                          ? `${eveningDiff.cashierName} (شفت مسائي)` 
+                          : cashierName || 'يرجى الاختيار'}
+                      </strong>
+                    </span>
                   </div>
                   <span className="font-extrabold text-emerald-800">
-                    المبلغ: {totalDiffAmount.toFixed(2)} د.أ ({totalDiffType === 'shortage' ? 'عجز' : 'زيادة'})
+                    المبلغ المسجل: {totalDiffAmount.toFixed(2)} د.أ ({totalDiffType === 'shortage' ? 'عجز' : 'زيادة'})
                   </span>
                 </div>
               </div>
             ) : (
-              /* الوضع الثاني: تقسيم بين كاشيرين */
+              /* الوضع الثاني: تقسيم بين الشفتين (صباحي + مسائي) */
               <div className="space-y-3">
                 {/* شريط الأدوات السريعة للتقسيم */}
-                <div className="flex items-center justify-between flex-wrap gap-2 bg-indigo-100/60 p-2 rounded-xl border border-indigo-200">
+                <div className="flex items-center justify-between flex-wrap gap-2 bg-indigo-100/60 p-2.5 rounded-xl border border-indigo-200">
                   <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={handleSwapCashiers}
+                      className="px-3 py-1 bg-white hover:bg-indigo-50 text-indigo-950 border border-indigo-300 rounded-lg text-xs font-black transition-all shadow-xs active:scale-95 cursor-pointer flex items-center gap-1"
+                      title="تبديل الكاشير الصباحي والمسائي"
+                    >
+                      <span>🔄 تبديل الشفتات (قصي ⟷ أمجد)</span>
+                    </button>
                     <button
                       type="button"
                       onClick={handleSplitFiftyFifty}
                       className="px-3 py-1 bg-white hover:bg-indigo-50 text-indigo-950 border border-indigo-300 rounded-lg text-xs font-black transition-all shadow-xs active:scale-95 cursor-pointer"
                     >
-                      ⚡ تقسيم 50% / 50% بالتساوي
+                      ⚡ تقسيم 50% / 50%
                     </button>
                     {shiftHandover && (
                       <button
@@ -911,25 +1075,25 @@ export const ActualInventorySection = React.memo(() => {
                     return (
                       <div className="flex items-center gap-2 text-xs">
                         {isMatch ? (
-                          <span className="bg-emerald-100 text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded font-black flex items-center gap-1">
+                          <span className="bg-emerald-100 text-emerald-900 border border-emerald-300 px-2.5 py-1 rounded-lg font-black flex items-center gap-1">
                             <span>✔️</span>
                             <span>المجموع موزع بالكامل ({sum.toFixed(2)} د.أ)</span>
                           </span>
                         ) : diffRem > 0 ? (
                           <div className="flex items-center gap-1.5">
-                            <span className="bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded font-bold">
+                            <span className="bg-amber-100 text-amber-900 border border-amber-300 px-2 py-1 rounded-lg font-bold">
                               موزع ({sum.toFixed(2)}) — متبقي: {diffRem.toFixed(2)} د.أ
                             </span>
                             <button
                               type="button"
-                              onClick={handleAssignRemainderToC2}
-                              className="px-2 py-0.5 bg-amber-500 hover:bg-amber-600 text-white rounded text-[11px] font-bold cursor-pointer"
+                              onClick={handleAssignRemainderToEvening}
+                              className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-black cursor-pointer shadow-xs active:scale-95"
                             >
-                              + وضع الباقي لكاشير 2
+                              + وضع الباقي للمسائي
                             </button>
                           </div>
                         ) : (
-                          <span className="bg-rose-100 text-rose-900 border border-rose-300 px-2 py-0.5 rounded font-bold">
+                          <span className="bg-rose-100 text-rose-900 border border-rose-300 px-2 py-1 rounded-lg font-bold">
                             ⚠️ المجموع الموزع أكبر من الفرق بـ {Math.abs(diffRem).toFixed(2)} د.أ
                           </span>
                         )}
@@ -938,19 +1102,19 @@ export const ActualInventorySection = React.memo(() => {
                   })()}
                 </div>
 
-                {/* كروت الكاشيرين */}
+                {/* كروت الشفت الصباحي والمسائي */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* كارت كاشير 1 */}
-                  <div className="p-3 bg-white border-2 border-amber-200 rounded-xl space-y-2 shadow-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black text-amber-900 flex items-center gap-1">
-                        <span>👤</span>
-                        <span>كاشير 1</span>
+                  {/* كارت الشفت الصباحي */}
+                  <div className="p-3.5 bg-white border-2 border-amber-300 rounded-xl space-y-2.5 shadow-xs">
+                    <div className="flex items-center justify-between border-b border-amber-100 pb-1.5">
+                      <span className="text-xs font-black text-amber-950 flex items-center gap-1.5">
+                        <span className="text-base">☀️</span>
+                        <span>الشفت الصباحي</span>
                       </span>
                       {morningDiff.amount > 0 && (
                         <span className={cn(
-                          "text-[11px] font-black px-1.5 py-0.5 rounded",
-                          morningDiff.type === 'shortage' ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"
+                          "text-[11px] font-black px-2 py-0.5 rounded-full border",
+                          morningDiff.type === 'shortage' ? "bg-rose-100 text-rose-900 border-rose-300" : "bg-emerald-100 text-emerald-900 border-emerald-300"
                         )}>
                           {morningDiff.type === 'shortage' ? 'عجز' : 'زيادة'}: {morningDiff.amount} د.أ
                         </span>
@@ -958,15 +1122,18 @@ export const ActualInventorySection = React.memo(() => {
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-gray-700 block">اسم الكاشير:</label>
+                      <label className="text-[11px] font-bold text-gray-700 block">كاشير الشفت الصباحي:</label>
                       <select
                         value={morningDiff.cashierName || ''}
-                        onChange={(e) => handleUpdateMorning('cashierName', e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-amber-50/40 border border-amber-300 rounded-lg text-xs font-bold text-gray-900 outline-none focus:ring-2 focus:ring-amber-400"
+                        onChange={(e) => {
+                          handleUpdateMorning('cashierName', e.target.value);
+                          handleUpdateMorning('notes', 'صباحي');
+                        }}
+                        className="w-full px-2.5 py-1.5 bg-amber-50/50 border border-amber-300 rounded-lg text-xs font-bold text-gray-900 outline-none focus:ring-2 focus:ring-amber-400"
                       >
-                        <option value="">-- اختر كاشير 1 --</option>
-                        <option value="قصي البدور">قصي البدور</option>
-                        <option value="أمجد شحادات">أمجد شحادات</option>
+                        <option value="">-- اختر كاشير الصباحي --</option>
+                        <option value="قصي البدور">قصي البدور (صباحي)</option>
+                        <option value="أمجد شحادات">أمجد شحادات (صباحي)</option>
                       </select>
                     </div>
 
@@ -984,13 +1151,18 @@ export const ActualInventorySection = React.memo(() => {
                         </select>
                       </div>
                       <div>
-                        <label className="text-[11px] font-bold text-gray-700 block">مبلغ النقص/الزيادة:</label>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <label className="text-[11px] font-bold text-gray-700">المبلغ (د.أ):</label>
+                        </div>
                         <input
                           type="number"
                           step="0.01"
                           min="0"
                           value={morningDiff.amount || ''}
-                          onChange={(e) => handleUpdateMorning('amount', parseFloat(e.target.value) || 0)}
+                          onChange={(e) => {
+                            handleUpdateMorning('amount', parseFloat(e.target.value) || 0);
+                            handleUpdateMorning('notes', 'صباحي');
+                          }}
                           placeholder="0.00"
                           className="w-full px-2 py-1.5 border-2 border-amber-300 rounded-lg text-xs font-black text-gray-900 text-center outline-none focus:ring-2 focus:ring-amber-500"
                         />
@@ -998,17 +1170,17 @@ export const ActualInventorySection = React.memo(() => {
                     </div>
                   </div>
 
-                  {/* كارت كاشير 2 */}
-                  <div className="p-3 bg-white border-2 border-indigo-200 rounded-xl space-y-2 shadow-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black text-indigo-900 flex items-center gap-1">
-                        <span>👤</span>
-                        <span>كاشير 2</span>
+                  {/* كارت الشفت المسائي */}
+                  <div className="p-3.5 bg-white border-2 border-indigo-300 rounded-xl space-y-2.5 shadow-xs">
+                    <div className="flex items-center justify-between border-b border-indigo-100 pb-1.5">
+                      <span className="text-xs font-black text-indigo-950 flex items-center gap-1.5">
+                        <span className="text-base">🌙</span>
+                        <span>الشفت المسائي</span>
                       </span>
                       {eveningDiff.amount > 0 && (
                         <span className={cn(
-                          "text-[11px] font-black px-1.5 py-0.5 rounded",
-                          eveningDiff.type === 'shortage' ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"
+                          "text-[11px] font-black px-2 py-0.5 rounded-full border",
+                          eveningDiff.type === 'shortage' ? "bg-rose-100 text-rose-900 border-rose-300" : "bg-emerald-100 text-emerald-900 border-emerald-300"
                         )}>
                           {eveningDiff.type === 'shortage' ? 'عجز' : 'زيادة'}: {eveningDiff.amount} د.أ
                         </span>
@@ -1016,15 +1188,18 @@ export const ActualInventorySection = React.memo(() => {
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-gray-700 block">اسم الكاشير:</label>
+                      <label className="text-[11px] font-bold text-gray-700 block">كاشير الشفت المسائي:</label>
                       <select
-                        value={eveningDiff.cashierName || cashierName || ''}
-                        onChange={(e) => handleUpdateEvening('cashierName', e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-indigo-50/40 border border-indigo-300 rounded-lg text-xs font-bold text-gray-900 outline-none focus:ring-2 focus:ring-indigo-400"
+                        value={eveningDiff.cashierName || cashierName?.replace(/\s*\(.*?\)/, '') || ''}
+                        onChange={(e) => {
+                          handleUpdateEvening('cashierName', e.target.value);
+                          handleUpdateEvening('notes', 'مسائي');
+                        }}
+                        className="w-full px-2.5 py-1.5 bg-indigo-50/50 border border-indigo-300 rounded-lg text-xs font-bold text-gray-900 outline-none focus:ring-2 focus:ring-indigo-400"
                       >
-                        <option value="">-- اختر كاشير 2 --</option>
-                        <option value="أمجد شحادات">أمجد شحادات</option>
-                        <option value="قصي البدور">قصي البدور</option>
+                        <option value="">-- اختر كاشير المسائي --</option>
+                        <option value="أمجد شحادات">أمجد شحادات (مسائي)</option>
+                        <option value="قصي البدور">قصي البدور (مسائي)</option>
                       </select>
                     </div>
 
@@ -1042,13 +1217,28 @@ export const ActualInventorySection = React.memo(() => {
                         </select>
                       </div>
                       <div>
-                        <label className="text-[11px] font-bold text-gray-700 block">مبلغ النقص/الزيادة:</label>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <label className="text-[11px] font-bold text-gray-700">المبلغ (د.أ):</label>
+                          {morningDiff.amount > 0 && Math.abs(totalDiffAmount - (morningDiff.amount || 0) - (eveningDiff.amount || 0)) > 0.009 && (
+                            <button
+                              type="button"
+                              onClick={handleAssignRemainderToEvening}
+                              className="text-[10px] font-extrabold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+                              title="حساب الباقي تلقائياً"
+                            >
+                              حساب الباقي
+                            </button>
+                          )}
+                        </div>
                         <input
                           type="number"
                           step="0.01"
                           min="0"
                           value={eveningDiff.amount || ''}
-                          onChange={(e) => handleUpdateEvening('amount', parseFloat(e.target.value) || 0)}
+                          onChange={(e) => {
+                            handleUpdateEvening('amount', parseFloat(e.target.value) || 0);
+                            handleUpdateEvening('notes', 'مسائي');
+                          }}
                           placeholder="0.00"
                           className="w-full px-2 py-1.5 border-2 border-indigo-300 rounded-lg text-xs font-black text-gray-900 text-center outline-none focus:ring-2 focus:ring-indigo-500"
                         />
@@ -1060,7 +1250,7 @@ export const ActualInventorySection = React.memo(() => {
             )}
 
             <p className="text-[11px] text-gray-600 font-semibold text-center">
-              💡 يتم حفظ وتوثيق مبالغ الفوارق باسم كل كاشير وترحيلها تلقائياً إلى تقرير الكاشيرية بدقة.
+              💡 يتم حفظ وتوثيق مبالغ الفوارق باسم كل كاشير وشفت وترحيلها تلقائياً إلى تقرير الكاشيرية بدقة.
             </p>
           </div>
         )}

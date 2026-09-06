@@ -58,11 +58,15 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
       const isSplit = (morningDiff.amount > 0 && eveningDiff.amount > 0) || morningDiff.notes === 'تقسيم' || eveningDiff.notes === 'تقسيم';
       setAssignMode(isSplit ? 'split' : 'single');
 
-      setMorningCashier(morningDiff.cashierName || shiftHandover?.morningCashier || 'قصي البدور');
+      const defaultMorning = morningDiff.cashierName || shiftHandover?.morningCashier || 'قصي البدور';
+      const isQusayMorning = defaultMorning.includes('قصي');
+      const defaultEvening = eveningDiff.cashierName || cashierName?.replace(/\s*\(.*?\)/, '') || shiftHandover?.eveningCashier || (isQusayMorning ? 'أمجد شحادات' : 'قصي البدور');
+
+      setMorningCashier(defaultMorning);
       setMorningType(morningDiff.type || totalDiffType);
       setMorningAmount(morningDiff.amount || 0);
 
-      setEveningCashier(eveningDiff.cashierName || cashierName || shiftHandover?.eveningCashier || 'أمجد شحادات');
+      setEveningCashier(defaultEvening);
       setEveningType(eveningDiff.type || totalDiffType);
       setEveningAmount(eveningDiff.amount || (isSplit ? 0 : totalDiffAmount));
     }
@@ -70,16 +74,29 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
 
   if (!isOpen) return null;
 
-  // إسناد كامل المبلغ لكاشير واحد
-  const handleAssignSingleCashier = (name: string) => {
-    setAssignMode('single');
-    setEveningCashier(name);
-    setEveningType(totalDiffType);
-    setEveningAmount(totalDiffAmount);
+  // إسناد كامل المبلغ لكاشير وشفت محدد
+  const handleAssignSingle = (name: string, shift: 'صباحي' | 'مسائي') => {
+    const isQusay = name.includes('قصي');
+    const otherName = isQusay ? 'أمجد شحادات' : 'قصي البدور';
 
-    setMorningCashier('');
-    setMorningType('exact');
-    setMorningAmount(0);
+    setAssignMode('single');
+    if (shift === 'صباحي') {
+      setMorningCashier(name);
+      setMorningType(totalDiffType);
+      setMorningAmount(totalDiffAmount);
+
+      setEveningCashier(otherName);
+      setEveningType('exact');
+      setEveningAmount(0);
+    } else {
+      setMorningCashier(otherName);
+      setMorningType('exact');
+      setMorningAmount(0);
+
+      setEveningCashier(name);
+      setEveningType(totalDiffType);
+      setEveningAmount(totalDiffAmount);
+    }
   };
 
   // تقسيم بالتساوي 50% / 50%
@@ -88,11 +105,15 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
     const half = Number((totalDiffAmount / 2).toFixed(2));
     const remainder = Number((totalDiffAmount - half).toFixed(2));
     
-    setMorningCashier(morningCashier || 'قصي البدور');
+    const mName = morningCashier || 'قصي البدور';
+    const isQusay = mName.includes('قصي');
+    const eName = eveningCashier || (isQusay ? 'أمجد شحادات' : 'قصي البدور');
+
+    setMorningCashier(mName);
     setMorningType(totalDiffType);
     setMorningAmount(half);
 
-    setEveningCashier(eveningCashier || 'أمجد شحادات');
+    setEveningCashier(eName);
     setEveningType(totalDiffType);
     setEveningAmount(remainder);
   };
@@ -107,23 +128,36 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
   const handleFinalConfirm = () => {
     if (hasDifference) {
       if (assignMode === 'single') {
-        if (!eveningCashier.trim()) {
-          toast.error('يرجى اختيار الكاشير المسؤول عن كامل المبلغ');
-          return;
+        const isMorning = morningAmount > 0;
+        if (isMorning) {
+          updateData(['shiftDifferences', 'morning'], {
+            cashierName: morningCashier.trim(),
+            type: totalDiffType,
+            amount: totalDiffAmount,
+            notes: 'صباحي'
+          });
+          updateData(['shiftDifferences', 'evening'], {
+            cashierName: eveningCashier.trim(),
+            type: 'exact',
+            amount: 0,
+            notes: 'مسائي'
+          });
+          updateData(['cashierName'], `${morningCashier.trim()} (صباحي)`);
+        } else {
+          updateData(['shiftDifferences', 'morning'], {
+            cashierName: morningCashier.trim(),
+            type: 'exact',
+            amount: 0,
+            notes: 'صباحي'
+          });
+          updateData(['shiftDifferences', 'evening'], {
+            cashierName: eveningCashier.trim(),
+            type: totalDiffType,
+            amount: totalDiffAmount,
+            notes: 'مسائي'
+          });
+          updateData(['cashierName'], `${eveningCashier.trim()} (مسائي)`);
         }
-        updateData(['shiftDifferences', 'morning'], {
-          cashierName: '',
-          type: 'exact',
-          amount: 0,
-          notes: ''
-        });
-        updateData(['shiftDifferences', 'evening'], {
-          cashierName: eveningCashier.trim(),
-          type: totalDiffType,
-          amount: totalDiffAmount,
-          notes: 'مسائي'
-        });
-        updateData(['cashierName'], eveningCashier.trim());
       } else {
         // Mode split
         if (morningAmount > 0 && !morningCashier.trim()) {
@@ -141,19 +175,19 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
 
         updateData(['shiftDifferences', 'morning'], {
           cashierName: morningCashier.trim(),
-          type: morningType,
-          amount: Number(morningAmount.toFixed(2)),
-          notes: 'تقسيم'
+          type: morningAmount > 0 ? morningType : 'exact',
+          amount: Number((morningAmount || 0).toFixed(2)),
+          notes: 'صباحي'
         });
 
         updateData(['shiftDifferences', 'evening'], {
           cashierName: eveningCashier.trim(),
-          type: eveningType,
-          amount: Number(eveningAmount.toFixed(2)),
-          notes: 'تقسيم'
+          type: eveningAmount > 0 ? eveningType : 'exact',
+          amount: Number((eveningAmount || 0).toFixed(2)),
+          notes: 'مسائي'
         });
 
-        updateData(['cashierName'], `${morningCashier.trim()} + ${eveningCashier.trim()}`);
+        updateData(['cashierName'], `${morningCashier.trim()} (${morningAmount} د.أ صباحي) + ${eveningCashier.trim()} (${eveningAmount} د.أ مسائي)`);
       }
     }
 
@@ -203,76 +237,116 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
                   توثيق الفارق ({totalDiffType === 'shortage' ? `عجز ${totalDiffAmount.toFixed(2)} د.أ` : `زيادة ${totalDiffAmount.toFixed(2)} د.أ`}):
                 </span>
               </label>
-
-              {/* أزرار التبديل: كاشير واحد أم تقسيم */}
-              <div className="flex items-center bg-white p-0.5 rounded-lg border border-indigo-200">
-                <button
-                  type="button"
-                  onClick={() => handleAssignSingleCashier(eveningCashier || 'قصي البدور')}
-                  className={cn(
-                    "px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer",
-                    assignMode === 'single'
-                      ? "bg-indigo-600 text-white font-black shadow-xs"
-                      : "text-gray-600 hover:text-indigo-700"
-                  )}
-                >
-                  👤 كاشير واحد
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSplitFiftyFifty}
-                  className={cn(
-                    "px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer",
-                    assignMode === 'split'
-                      ? "bg-indigo-600 text-white font-black shadow-xs"
-                      : "text-gray-600 hover:text-indigo-700"
-                  )}
-                >
-                  👥 تقسيم كاشيرين
-                </button>
-              </div>
             </div>
 
-            {/* الوضع 1: كاشير واحد */}
+            {/* أزرار التبديل: كاشير واحد أم الكاشيرين مجتمعين */}
+            <div className="flex items-center bg-white p-1 rounded-xl border border-rose-200 shadow-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  const currentC = morningAmount > 0 ? morningCashier : (eveningCashier || 'قصي البدور');
+                  const currentS = morningAmount > 0 ? 'صباحي' : 'مسائي';
+                  handleAssignSingle(currentC || 'قصي البدور', currentS);
+                }}
+                className={cn(
+                  "flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center",
+                  assignMode === 'single'
+                    ? "bg-indigo-600 text-white shadow-xs font-black"
+                    : "text-gray-600 hover:text-indigo-700"
+                )}
+              >
+                👤 عند أحد الكاشيرين (كامل المبلغ)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleSplitFiftyFifty();
+                }}
+                className={cn(
+                  "flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center",
+                  assignMode === 'split'
+                    ? "bg-indigo-600 text-white shadow-xs font-black"
+                    : "text-gray-600 hover:text-indigo-700"
+                )}
+              >
+                👥 عند الكاشيرين مجتمعين (تحديد مبلغ كل كاشير)
+              </button>
+            </div>
+
+            {/* الوضع 1: عند أحد الكاشيرين */}
             {assignMode === 'single' ? (
-              <div className="bg-white p-3 border border-indigo-200 rounded-xl space-y-2.5">
+              <div className="bg-white p-3.5 border border-indigo-200 rounded-xl space-y-2.5 shadow-xs">
                 <span className="text-xs font-bold text-gray-700 block">
-                  اختر الكاشير المسؤول عن كامل المبلغ ({totalDiffAmount.toFixed(2)} د.أ {totalDiffType === 'shortage' ? 'عجز' : 'زيادة'}):
+                  اختر الكاشير والشفت الذي ظهر عنده {totalDiffType === 'shortage' ? 'النقص' : 'الزيادة'} ({totalDiffAmount.toFixed(2)} د.أ):
                 </span>
-                
+
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => handleAssignSingleCashier('قصي البدور')}
+                    onClick={() => handleAssignSingle('قصي البدور', 'صباحي')}
                     className={cn(
-                      "p-2.5 rounded-lg border text-center transition-all cursor-pointer",
-                      eveningCashier === 'قصي البدور'
-                        ? "bg-indigo-50 border-indigo-500 text-indigo-950 font-black ring-2 ring-indigo-200"
-                        : "bg-gray-50 border-gray-200 hover:bg-gray-100 text-gray-700 font-bold"
+                      "p-2.5 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer",
+                      (morningCashier === 'قصي البدور' && morningAmount > 0)
+                        ? "bg-amber-50 border-amber-500 text-amber-950 font-black ring-2 ring-amber-300"
+                        : "bg-gray-50/80 border-gray-200 hover:bg-amber-50/50 text-gray-800"
                     )}
                   >
-                    👤 قصي البدور
+                    <span className="text-xs font-black">☀️ قصي البدور</span>
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">شفت صباحي</span>
                   </button>
+
                   <button
                     type="button"
-                    onClick={() => handleAssignSingleCashier('أمجد شحادات')}
+                    onClick={() => handleAssignSingle('قصي البدور', 'مسائي')}
                     className={cn(
-                      "p-2.5 rounded-lg border text-center transition-all cursor-pointer",
-                      eveningCashier === 'أمجد شحادات'
-                        ? "bg-indigo-50 border-indigo-500 text-indigo-950 font-black ring-2 ring-indigo-200"
-                        : "bg-gray-50 border-gray-200 hover:bg-gray-100 text-gray-700 font-bold"
+                      "p-2.5 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer",
+                      (eveningCashier === 'قصي البدور' && eveningAmount > 0)
+                        ? "bg-indigo-50 border-indigo-500 text-indigo-950 font-black ring-2 ring-indigo-300"
+                        : "bg-gray-50/80 border-gray-200 hover:bg-indigo-50/50 text-gray-800"
                     )}
                   >
-                    👤 أمجد شحادات
+                    <span className="text-xs font-black">🌙 قصي البدور</span>
+                    <span className="text-[10px] font-bold text-indigo-800 bg-indigo-100 px-2 py-0.5 rounded">شفت مسائي</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAssignSingle('أمجد شحادات', 'صباحي')}
+                    className={cn(
+                      "p-2.5 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer",
+                      (morningCashier === 'أمجد شحادات' && morningAmount > 0)
+                        ? "bg-amber-50 border-amber-500 text-amber-950 font-black ring-2 ring-amber-300"
+                        : "bg-gray-50/80 border-gray-200 hover:bg-amber-50/50 text-gray-800"
+                    )}
+                  >
+                    <span className="text-xs font-black">☀️ أمجد شحادات</span>
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">شفت صباحي</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAssignSingle('أمجد شحادات', 'مسائي')}
+                    className={cn(
+                      "p-2.5 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer",
+                      (eveningCashier === 'أمجد شحادات' && eveningAmount > 0)
+                        ? "bg-indigo-50 border-indigo-500 text-indigo-950 font-black ring-2 ring-indigo-300"
+                        : "bg-gray-50/80 border-gray-200 hover:bg-indigo-50/50 text-gray-800"
+                    )}
+                  >
+                    <span className="text-xs font-black">🌙 أمجد شحادات</span>
+                    <span className="text-[10px] font-bold text-indigo-800 bg-indigo-100 px-2 py-0.5 rounded">شفت مسائي</span>
                   </button>
                 </div>
 
-                <div className="p-2 bg-emerald-50 border border-emerald-200 rounded text-[11px] font-bold text-emerald-900 text-center">
-                  ✅ سيتم تحميل كامل الفرق ({totalDiffAmount.toFixed(2)} د.أ) على: <strong className="font-black text-emerald-950">{eveningCashier || 'يرجى الاختيار'}</strong>
+                <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-center text-emerald-950 font-bold">
+                  ✅ سيتم توثيق كامل الفارق ({totalDiffAmount.toFixed(2)} د.أ) على:{' '}
+                  <strong className="text-emerald-900 font-black">
+                    {morningAmount > 0 ? `${morningCashier} (شفت صباحي)` : `${eveningCashier} (شفت مسائي)`}
+                  </strong>
                 </div>
               </div>
             ) : (
-              /* الوضع 2: تقسيم كاشيرين */
+              /* الوضع 2: تفاصيل التقسيم على كاشيرين */
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between flex-wrap gap-1.5 bg-indigo-100/70 p-2 rounded-lg text-xs">
                   <button

@@ -19,9 +19,13 @@ import { doc, setDoc } from 'firebase/firestore';
 import { exportToImage, printDocument, getDayLabel } from './lib/exportUtils';
 import { cn } from './lib/utils';
 import restaurantLogo from './assets/logo.jpeg';
+import { ExportHeader } from './components/ReportHeaderFooter';
 
 function App() {
-  const { data, isLoading, initSync, updateData, setShiftDate, fetchSavedDates, savedDates, deleteReport, closeShift, reopenShift, previousDayActualCash } = useShiftStore();
+  const { 
+    data, isLoading, initSync, updateData, setShiftDate, fetchSavedDates, savedDates, 
+    deleteReport, closeShift, reopenShift, previousDayActualCash 
+  } = useShiftStore();
   const calc = useCalculations();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showDeficitModal, setShowDeficitModal] = useState(false);
@@ -539,21 +543,13 @@ function App() {
           {/* Main Cash and Inventory Tables Container for Image Export 1 */}
           <div id="cash-report-export" className="space-y-6">
             {/* Export Header Banner for Cash Report */}
-            <div className="hidden export-header-cash mb-6 bg-white p-5 rounded-2xl shadow-xs border-2 border-indigo-600">
-              <div className="flex items-center justify-center gap-5">
-                <div className="w-16 h-16 bg-black rounded-xl border border-slate-800 flex items-center justify-center overflow-hidden shrink-0 shadow-sm p-1">
-                  <img src={restaurantLogo} alt="شعار يحيى البيك" className="w-full h-full object-contain" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-black text-indigo-950 tracking-tight">مطعم يحيى البيك - تقرير إغلاق الكاش اليومي</h1>
-                  <div className="flex items-center justify-center sm:justify-start gap-4 mt-2 text-sm font-bold text-gray-700 bg-indigo-50/70 py-1.5 px-4 rounded-xl w-fit">
-                    <span>اليوم: <strong className="text-indigo-900">{currentDayLabel}</strong></span>
-                    <span className="text-gray-300">|</span>
-                    <span>التاريخ: <strong className="text-indigo-900" dir="ltr">{data.date}</strong></span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <ExportHeader
+              id="export-header-cash"
+              title="مطعم يحيى البيك - تقرير إغلاق الكاش اليومي"
+              date={data.date}
+              dayLabel={currentDayLabel}
+              className="hidden print:block"
+            />
 
             <div id="cash-report-content" className="space-y-6">
               {/* Top Grid: 4 columns in screen mode, 2 wide columns in Print / Image Export */}
@@ -595,21 +591,13 @@ function App() {
           {/* 4. Employee Attendance & Advances Section (Exported separately as Image 2) */}
           <div id="employee-report-export" className="col-span-full print:break-before-page print:mt-6 mt-6">
             {/* Export Header Banner for Employee Report with Day and Date */}
-            <div className="hidden export-header-employee mb-6 bg-white p-5 rounded-2xl shadow-xs border-2 border-indigo-600">
-              <div className="flex items-center justify-center gap-5">
-                <div className="w-16 h-16 bg-black rounded-xl border border-slate-800 flex items-center justify-center overflow-hidden shrink-0 shadow-sm p-1">
-                  <img src={restaurantLogo} alt="شعار يحيى البيك" className="w-full h-full object-contain" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-black text-indigo-950 tracking-tight">مطعم يحيى البيك - إغلاق جدول الموظفين</h1>
-                  <div className="flex items-center justify-center sm:justify-start gap-4 mt-2 text-sm font-bold text-gray-700 bg-indigo-50/70 py-1.5 px-4 rounded-xl w-fit">
-                    <span>اليوم: <strong className="text-indigo-900">{currentDayLabel}</strong></span>
-                    <span className="text-gray-300">|</span>
-                    <span>التاريخ: <strong className="text-indigo-900" dir="ltr">{data.date}</strong></span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <ExportHeader
+              id="export-header-employee"
+              title="مطعم يحيى البيك - تقرير الموظفين اليومي"
+              date={data.date}
+              dayLabel={currentDayLabel}
+              className="hidden print:block"
+            />
 
             <EmployeeAdvancesSection />
           </div>

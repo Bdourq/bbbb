@@ -3,7 +3,7 @@ import { X, ShieldAlert, User, TrendingDown, TrendingUp, CheckCircle2, RefreshCw
 import { db } from '../lib/firebase';
 import { collection, getDocs, query } from 'firebase/firestore';
 import { ShiftData } from '../store/useShiftStore';
-import { calculateWage } from './sections2';
+import { calculateShiftMetrics } from '../lib/shiftCalculations';
 
 export const START_CASHIER_REPORT_DATE = '2026-09-05'; // تقرير 5/9
 
@@ -17,73 +17,7 @@ type CashierSummary = {
 
 // Exact shift difference calculation conforming to accounting formulas
 export const calculateShiftShortageAndSurplus = (docData: ShiftData) => {
-  const sumLineItems = (items?: Array<{ amount?: number }>) =>
-    (items || []).reduce((acc, item) => acc + (Number(item?.amount) || 0), 0);
-
-  // 1. Total Cash
-  const cashInfo = (docData.cashAndSales as any) || {};
-  const addedReceivablesTotal = docData.addCashReceivables
-    ? sumLineItems(docData.addCashReceivables)
-    : (Number(cashInfo.paidOldReceivables) || 0);
-
-  const newReceivablesTotal = docData.addNewReceivables
-    ? sumLineItems(docData.addNewReceivables)
-    : (Number(cashInfo.addedReceivables) || 0);
-
-  const totalCash =
-    (Number(cashInfo.openingCash) || 0) +
-    (Number(cashInfo.sales) || 0) +
-    (Number(cashInfo.otherSales) || 0) +
-    newReceivablesTotal -
-    addedReceivablesTotal;
-
-  // 2. Sum of all expense lists + manual overrides (excluding addMerchantReceivables which is not cash spent)
-  const purchasesTotal = sumLineItems(docData.purchases) + (Number(docData.actualInventory?.manualPurchases) || 0);
-  const payMerchantTotal = sumLineItems(docData.payMerchantReceivables) + (Number(docData.actualInventory?.manualPayMerchant) || 0);
-  const otherExpensesTotal = sumLineItems(docData.otherExpenses) + (Number(docData.actualInventory?.manualOtherExpenses) || 0);
-  const apartmentTotal = sumLineItems(docData.apartment) + (Number(docData.actualInventory?.manualApartment) || 0);
-  const adminExpensesTotal = sumLineItems(docData.adminExpenses) + (Number(docData.actualInventory?.manualAdminExpenses) || 0);
-  const yahyaTotal = sumLineItems(docData.yahya) + (Number(docData.actualInventory?.manualYahya) || 0);
-  const abuAbdullahTotal = sumLineItems(docData.abuAbdullah) + (Number(docData.actualInventory?.manualAbuAbdullah) || 0);
-  const spicesTotal = sumLineItems(docData.spices) + (Number(docData.actualInventory?.manualSpices) || 0);
-  const equipmentTotal = sumLineItems(docData.equipment) + (Number(docData.actualInventory?.manualEquipment) || 0);
-  const ewalletTotal = sumLineItems(docData.ewallet);
-
-  // 3. Advances total (Advances + Daily Wages)
-  const advancesTotal = (docData.employeeAdvances || []).reduce((acc, emp) => {
-    const dailyWage = calculateWage(emp.startTime, emp.endTime, emp.hourlyRate);
-    return acc + dailyWage + (Number(emp.amount) || 0);
-  }, 0);
-
-  const expensesWithoutAdvances =
-    purchasesTotal +
-    payMerchantTotal +
-    otherExpensesTotal +
-    apartmentTotal +
-    adminExpensesTotal +
-    yahyaTotal +
-    abuAbdullahTotal +
-    spicesTotal +
-    equipmentTotal;
-
-  const effectiveAdvances = Number(docData.actualInventory?.advances) || advancesTotal || 0;
-
-  // 4. Total Actual Inventory
-  const actualCounted =
-    (Number(docData.actualInventory?.actualCash) || 0) +
-    (Number(docData.actualInventory?.visa) || 0) +
-    (Number(docData.actualInventory?.rt) || 0) +
-    (Number(docData.actualInventory?.maestro) || 0) +
-    (Number(docData.actualInventory?.priceDifference) || 0) +
-    effectiveAdvances +
-    ewalletTotal;
-
-  const totalInventory = actualCounted + expensesWithoutAdvances;
-
-  const diff = Number((totalInventory - totalCash).toFixed(2));
-  const cashShortage = diff < -0.009 ? Math.abs(diff) : 0;
-  const cashSurplus = diff > 0.009 ? diff : 0;
-
+  const { totalInventory, totalCash, diff, cashShortage, cashSurplus } = calculateShiftMetrics(docData);
   return { totalInventory, totalCash, diff, cashShortage, cashSurplus };
 };
 
@@ -108,80 +42,94 @@ export const CashierDeficitModal = ({ isOpen, onClose }: { isOpen: boolean; onCl
           return;
         }
 
-        // 1. حساب تسليم / عجز الشفت الصباحي أو كاشير 1
-        if (docData.shiftDifferences?.morning && docData.shiftDifferences.morning.cashierName && (docData.shiftDifferences.morning.amount || 0) > 0.009) {
-          const m = docData.shiftDifferences.morning;
-          const mCashier = m.cashierName.trim();
-          const mAmount = Number(m.amount.toFixed(2));
+        // 1. فحص وجود توثيق مخصص للشفتين (صباحي ومسائي)
+        const hasShiftDifferences = Boolean(
+          (docData.shiftDifferences?.morning?.cashierName && (docData.shiftDifferences.morning.amount > 0 || docData.shiftDifferences.morning.type === 'exact')) ||
+          (docData.shiftDifferences?.evening?.cashierName && (docData.shiftDifferences.evening.amount > 0 || docData.shiftDifferences.evening.type === 'exact'))
+        );
 
-          if (!map[mCashier]) {
-            map[mCashier] = { totalShortage: 0, totalSurplus: 0, shiftCount: 0, details: [] };
-          }
-          map[mCashier].shiftCount += 1;
+        if (hasShiftDifferences) {
+          // حساب الشفت الصباحي
+          if (docData.shiftDifferences?.morning?.cashierName) {
+            const m = docData.shiftDifferences.morning;
+            const mCashier = m.cashierName.trim();
+            const mAmount = Number((m.amount || 0).toFixed(2));
 
-          const label = m.notes ? `${date} (${m.notes})` : `${date} (صباحي)`;
-
-          if (m.type === 'shortage') {
-            map[mCashier].totalShortage += mAmount;
-            map[mCashier].details.push({ date: label, amount: mAmount, type: 'shortage' });
-          } else if (m.type === 'surplus') {
-            map[mCashier].totalSurplus += mAmount;
-            map[mCashier].details.push({ date: label, amount: mAmount, type: 'surplus' });
-          }
-        } else if (docData.shiftHandover && docData.shiftHandover.morningCashier) {
-          // التوافق مع بيانات تسليم الشفت السابقة
-          const mCashier = docData.shiftHandover.morningCashier.trim();
-          const mDiff = Number((docData.shiftHandover.difference || 0).toFixed(2));
-
-          if (mDiff < -0.009) {
-            const shortage = Math.abs(mDiff);
             if (!map[mCashier]) {
               map[mCashier] = { totalShortage: 0, totalSurplus: 0, shiftCount: 0, details: [] };
             }
             map[mCashier].shiftCount += 1;
-            map[mCashier].totalShortage += shortage;
-            map[mCashier].details.push({ date: `${date} (صباحي)`, amount: shortage, type: 'shortage' });
-          } else if (mDiff > 0.009) {
-            if (!map[mCashier]) {
-              map[mCashier] = { totalShortage: 0, totalSurplus: 0, shiftCount: 0, details: [] };
+
+            const label = m.notes ? `${date} (${m.notes})` : `${date} (صباحي)`;
+
+            if (m.type === 'shortage' && mAmount > 0.009) {
+              map[mCashier].totalShortage += mAmount;
+              map[mCashier].details.push({ date: label, amount: mAmount, type: 'shortage' });
+            } else if (m.type === 'surplus' && mAmount > 0.009) {
+              map[mCashier].totalSurplus += mAmount;
+              map[mCashier].details.push({ date: label, amount: mAmount, type: 'surplus' });
+            } else {
+              map[mCashier].details.push({ date: label, amount: 0, type: 'exact' });
             }
-            map[mCashier].shiftCount += 1;
-            map[mCashier].totalSurplus += mDiff;
-            map[mCashier].details.push({ date: `${date} (صباحي)`, amount: mDiff, type: 'surplus' });
           }
-        }
 
-        // 2. حساب عجز / زيادة الشفت المسائي أو كاشير 2 أو إغلاق اليوم
-        if (docData.shiftDifferences?.evening && docData.shiftDifferences.evening.cashierName && (docData.shiftDifferences.evening.amount || 0) > 0.009) {
-          const e = docData.shiftDifferences.evening;
-          const eCashier = e.cashierName.trim();
-          const eAmount = Number(e.amount.toFixed(2));
+          // حساب الشفت المسائي
+          if (docData.shiftDifferences?.evening?.cashierName) {
+            const e = docData.shiftDifferences.evening;
+            const eCashier = e.cashierName.trim();
+            const eAmount = Number((e.amount || 0).toFixed(2));
 
-          if (!map[eCashier]) {
-            map[eCashier] = { totalShortage: 0, totalSurplus: 0, shiftCount: 0, details: [] };
-          }
-          map[eCashier].shiftCount += 1;
+            if (!map[eCashier]) {
+              map[eCashier] = { totalShortage: 0, totalSurplus: 0, shiftCount: 0, details: [] };
+            }
+            map[eCashier].shiftCount += 1;
 
-          const label = e.notes ? `${date} (${e.notes})` : `${date} (مسائي)`;
+            const label = e.notes ? `${date} (${e.notes})` : `${date} (مسائي)`;
 
-          if (e.type === 'shortage') {
-            map[eCashier].totalShortage += eAmount;
-            map[eCashier].details.push({ date: label, amount: eAmount, type: 'shortage' });
-          } else if (e.type === 'surplus') {
-            map[eCashier].totalSurplus += eAmount;
-            map[eCashier].details.push({ date: label, amount: eAmount, type: 'surplus' });
+            if (e.type === 'shortage' && eAmount > 0.009) {
+              map[eCashier].totalShortage += eAmount;
+              map[eCashier].details.push({ date: label, amount: eAmount, type: 'shortage' });
+            } else if (e.type === 'surplus' && eAmount > 0.009) {
+              map[eCashier].totalSurplus += eAmount;
+              map[eCashier].details.push({ date: label, amount: eAmount, type: 'surplus' });
+            } else {
+              map[eCashier].details.push({ date: label, amount: 0, type: 'exact' });
+            }
           }
         } else {
-          // التوافق مع الحساب المالي الإجمالي
+          // التوافق مع تسليم الشفت الصباحي
+          if (docData.shiftHandover && docData.shiftHandover.morningCashier) {
+            const mCashier = docData.shiftHandover.morningCashier.trim();
+            const mDiff = Number((docData.shiftHandover.difference || 0).toFixed(2));
+
+            if (!map[mCashier]) {
+              map[mCashier] = { totalShortage: 0, totalSurplus: 0, shiftCount: 0, details: [] };
+            }
+            map[mCashier].shiftCount += 1;
+
+            if (mDiff < -0.009) {
+              const shortage = Math.abs(mDiff);
+              map[mCashier].totalShortage += shortage;
+              map[mCashier].details.push({ date: `${date} (صباحي)`, amount: shortage, type: 'shortage' });
+            } else if (mDiff > 0.009) {
+              map[mCashier].totalSurplus += mDiff;
+              map[mCashier].details.push({ date: `${date} (صباحي)`, amount: mDiff, type: 'surplus' });
+            } else {
+              map[mCashier].details.push({ date: `${date} (صباحي)`, amount: 0, type: 'exact' });
+            }
+          }
+
+          // التوافق مع الحساب المالي الإجمالي للكاشير المسائي أو العام
           const { cashShortage, cashSurplus } = calculateShiftShortageAndSurplus(docData);
           const closingCashier = docData.cashierName?.trim() || docData.shiftHandover?.eveningCashier?.trim();
 
           if (closingCashier) {
+            if (!map[closingCashier]) {
+              map[closingCashier] = { totalShortage: 0, totalSurplus: 0, shiftCount: 0, details: [] };
+            }
+            map[closingCashier].shiftCount += 1;
+
             if (cashShortage > 0.009) {
-              if (!map[closingCashier]) {
-                map[closingCashier] = { totalShortage: 0, totalSurplus: 0, shiftCount: 0, details: [] };
-              }
-              map[closingCashier].shiftCount += 1;
               map[closingCashier].totalShortage += cashShortage;
               map[closingCashier].details.push({
                 date: docData.shiftHandover ? `${date} (مسائي)` : date,
@@ -189,15 +137,17 @@ export const CashierDeficitModal = ({ isOpen, onClose }: { isOpen: boolean; onCl
                 type: 'shortage'
               });
             } else if (cashSurplus > 0.009) {
-              if (!map[closingCashier]) {
-                map[closingCashier] = { totalShortage: 0, totalSurplus: 0, shiftCount: 0, details: [] };
-              }
-              map[closingCashier].shiftCount += 1;
               map[closingCashier].totalSurplus += cashSurplus;
               map[closingCashier].details.push({
                 date: docData.shiftHandover ? `${date} (مسائي)` : date,
                 amount: cashSurplus,
                 type: 'surplus'
+              });
+            } else {
+              map[closingCashier].details.push({
+                date: docData.shiftHandover ? `${date} (مسائي)` : date,
+                amount: 0,
+                type: 'exact'
               });
             }
           }

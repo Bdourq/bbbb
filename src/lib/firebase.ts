@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD4xl6KDqcLxfB-SQAuQ7bcSYpg1aZErVc",
@@ -11,4 +11,6 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, "ai-studio-15c245e1-a40d-4f95-a1bf-5e60ce4b4dc4");
+export const db = initializeFirestore(app, {
+  ignoreUndefinedProperties: true
+}, "ai-studio-15c245e1-a40d-4f95-a1bf-5e60ce4b4dc4");
