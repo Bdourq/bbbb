@@ -68,21 +68,25 @@ export const CashierDeficitModal = ({ isOpen, onClose }: { isOpen: boolean; onCl
           // 2. Full End-of-Day Closure Cashier
           const closingCashier = docData.cashierName?.trim() || docData.shiftHandover?.eveningCashier?.trim() || 'غير محدد';
 
-          const totalInventory = (docData.actualInventory?.actualCash || 0) + 
+           const totalInventory = (docData.actualInventory?.actualCash || 0) + 
             (docData.actualInventory?.visa || 0) + 
             (docData.actualInventory?.rt || 0) + 
             (docData.actualInventory?.maestro || 0) + 
             (docData.actualInventory?.priceDifference || 0) + 
             (docData.actualInventory?.advances || 0) + 
-            (docData.actualInventory?.wallet || 0) +
+            ((docData.ewallet || []).reduce((sum, item) => sum + (item.amount || 0), 0)) +
             sumExpenses(docData);
 
           const cashInfo = (docData.cashAndSales as any) || {};
           const addedReceivablesTotal = docData.addCashReceivables 
             ? docData.addCashReceivables.reduce((sum, item) => sum + (item.amount || 0), 0)
+            : (cashInfo.paidOldReceivables || 0);
+
+          const newReceivablesTotal = docData.addNewReceivables
+            ? docData.addNewReceivables.reduce((sum, item) => sum + (item.amount || 0), 0)
             : (cashInfo.addedReceivables || 0);
 
-          const totalExpectedCash = (cashInfo.openingCash || 0) + addedReceivablesTotal + (cashInfo.paidOldReceivables || 0) + (cashInfo.sales || 0) + (cashInfo.otherSales || 0);
+          const totalExpectedCash = (cashInfo.openingCash || 0) + (cashInfo.sales || 0) + (cashInfo.otherSales || 0) + newReceivablesTotal - addedReceivablesTotal;
           
           const eDiff = totalInventory - totalExpectedCash; // Positive = surplus, Negative = shortage
 

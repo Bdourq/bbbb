@@ -341,7 +341,6 @@ export const ActualInventorySection = React.memo(() => {
     { key: 'maestro', label: 'مايسترو', targetId: 'cashData' },
     { key: 'priceDifference', label: 'فرق سعر', targetId: 'cashData' },
     { key: 'advances', label: 'سلف', targetId: 'employeeAdvances' },
-    { key: 'wallet', label: 'المحفظة', targetId: 'ewallet' },
   ];
 
   const displayFields = [
@@ -415,6 +414,21 @@ export const ActualInventorySection = React.memo(() => {
                 </td>
               </tr>
             ))}
+            <tr className="border-b border-gray-300 hover:bg-indigo-50/80 transition-colors group">
+              <td 
+                onClick={() => scrollToTable('ewallet')}
+                className="px-2 py-1.5 bg-gray-50 group-hover:bg-indigo-100/60 border border-gray-300 font-bold text-gray-700 text-center cursor-pointer"
+                title="انقر للانتقال لمعاينة جدول المحفظة الإلكترونية"
+              >
+                <div className="flex items-center justify-center gap-1">
+                  <span>المحفظة</span>
+                  <ExternalLink size={11} className="text-indigo-500 opacity-40 group-hover:opacity-100 print:hidden shrink-0" />
+                </div>
+              </td>
+              <td className="p-2 border border-gray-300 text-center font-bold text-indigo-900 bg-indigo-50/30" dir="ltr">
+                {calc.ewalletTotal > 0 ? calc.ewalletTotal.toLocaleString('en-US') : '0'}
+              </td>
+            </tr>
             {displayFields.map((field, idx) => {
               // Calculate table sum: totalValue - manualValue
               const manualValue = Number(data[field.manualKey as keyof typeof data]) || 0;

@@ -203,7 +203,7 @@ function App() {
     { key: 'adminExpenses', title: 'مصاريف إدارية', total: calc.adminExpensesTotal, suggestions: adminSuggestions },
     { key: 'abuAbdullah', title: 'أبو عبدالله', total: calc.abuAbdullahTotal },
     { key: 'equipment', title: 'معدات وصيانة', total: calc.equipmentTotal },
-    { key: 'ewallet', title: 'المحفظة الإلكترونية', total: calc.ewalletTotal, hideLabel: true },
+    { key: 'ewallet', title: 'المحفظة الإلكترونية', total: calc.ewalletTotal, hideLabel: true, className: 'print:hidden' },
     { key: 'addMerchantReceivables', title: 'إضافة ذمم تجار', total: calc.addMerchantTotal, suggestions: dynamicMerchantSuggestions },
     { key: 'yahya', title: 'يحيى', total: calc.yahyaTotal, suggestions: personalSuggestions },
     { key: 'spices', title: 'بهارات', total: calc.spicesTotal, suggestions: spiceSuggestions },
@@ -550,6 +550,7 @@ function App() {
                 total={cfg.total}
                 suggestions={cfg.suggestions}
                 hideLabel={cfg.hideLabel}
+                className={cfg.className}
               />
             ))}
 

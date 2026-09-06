@@ -9,18 +9,18 @@ export const useCalculations = () => {
   // 1. Total Cash
   const addedReceivablesTotal = data.addCashReceivables
     ? sumLineItems(data.addCashReceivables)
-    : (Number(data.cashAndSales.addedReceivables) || 0);
+    : (Number(data.cashAndSales.paidOldReceivables) || 0);
 
   const newReceivablesTotal = data.addNewReceivables
     ? sumLineItems(data.addNewReceivables)
-    : (Number(data.cashAndSales.paidOldReceivables) || 0);
+    : (Number(data.cashAndSales.addedReceivables) || 0);
 
   const totalCash = 
     (Number(data.cashAndSales.openingCash) || 0) +
-    addedReceivablesTotal +
-    newReceivablesTotal +
     (Number(data.cashAndSales.sales) || 0) +
-    (Number(data.cashAndSales.otherSales) || 0);
+    (Number(data.cashAndSales.otherSales) || 0) +
+    newReceivablesTotal -
+    addedReceivablesTotal;
 
   // 2. Sum of all expense lists + manual overrides
   const purchasesTotal = sumLineItems(data.purchases) + (Number(data.actualInventory.manualPurchases) || 0);
@@ -63,7 +63,7 @@ export const useCalculations = () => {
     (Number(data.actualInventory.maestro) || 0) +
     (Number(data.actualInventory.priceDifference) || 0) +
     (Number(data.actualInventory.advances) || advancesTotal || 0) +
-    (Number(data.actualInventory.wallet) || 0);
+    ewalletTotal;
 
   const totalInventory = 
     (Number(data.actualInventory.actualCash) || 0) +
@@ -71,7 +71,7 @@ export const useCalculations = () => {
     (Number(data.actualInventory.rt) || 0) +
     (Number(data.actualInventory.maestro) || 0) +
     (Number(data.actualInventory.priceDifference) || 0) +
-    (Number(data.actualInventory.wallet) || 0) +
+    ewalletTotal +
     totalExpenses;
 
   // Total Collected (المعدود كاش وفيزا وغيره)

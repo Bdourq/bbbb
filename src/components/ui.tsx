@@ -129,13 +129,15 @@ export const DynamicList = ({
   title, 
   total,
   suggestions,
-  hideLabel
+  hideLabel,
+  className
 }: { 
   listKey: keyof ShiftData; 
   title: string;
   total: number;
   suggestions?: string[];
   hideLabel?: boolean;
+  className?: string;
   key?: React.Key;
 }) => {
   const items = useShiftStore(state => state.data[listKey] as LineItem[]);
@@ -155,7 +157,8 @@ export const DynamicList = ({
       id={listKey as string} 
       data-empty={isEmpty} 
       className={cn(
-        hasError && "ring-3 ring-rose-500 border-rose-500 shadow-md shadow-rose-100"
+        hasError && "ring-3 ring-rose-500 border-rose-500 shadow-md shadow-rose-100",
+        className
       )}
     >
       <CardHeader 

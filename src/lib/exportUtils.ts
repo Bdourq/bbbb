@@ -8,6 +8,10 @@ export const exportToExcel = (data: ShiftData, calc: any) => {
 
   const addedReceivablesTotal = data.addCashReceivables 
     ? data.addCashReceivables.reduce((sum, item) => sum + (item.amount || 0), 0)
+    : (data.cashAndSales.paidOldReceivables || 0);
+
+  const newReceivablesTotal = data.addNewReceivables
+    ? data.addNewReceivables.reduce((sum, item) => sum + (item.amount || 0), 0)
     : (data.cashAndSales.addedReceivables || 0);
 
   // 1. Summary Sheet (ملخص الجرد المالي)
@@ -30,7 +34,7 @@ export const exportToExcel = (data: ShiftData, calc: any) => {
     { 'البيان': '--- حركة الكاش والمبيعات ---', 'القيمة': '' },
     { 'البيان': 'النقد الافتتاحي', 'القيمة': data.cashAndSales.openingCash },
     { 'البيان': 'سداد ذمم قديمة', 'القيمة': addedReceivablesTotal },
-    { 'البيان': 'إضافة ذمم جديدة', 'القيمة': data.cashAndSales.paidOldReceivables },
+    { 'البيان': 'إضافة ذمم جديدة', 'القيمة': newReceivablesTotal },
     { 'البيان': 'مبيعات', 'القيمة': data.cashAndSales.sales },
     { 'البيان': 'مبيعات أخرى', 'القيمة': data.cashAndSales.otherSales },
     { 'البيان': 'مجموع الكاش المتوفر', 'القيمة': calc.totalCash },

@@ -34,8 +34,8 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
 
   // Automatically pulled from main shift state / tables
   const openingCash = data.cashAndSales.openingCash || 0;
-  const addedReceivables = data.addCashReceivables ? data.addCashReceivables.reduce((sum, item) => sum + (item.amount || 0), 0) : (data.cashAndSales.addedReceivables || 0);
-  const paidOldReceivables = data.cashAndSales.paidOldReceivables || 0;
+  const addedReceivables = data.addCashReceivables ? data.addCashReceivables.reduce((sum, item) => sum + (item.amount || 0), 0) : (data.cashAndSales.paidOldReceivables || 0);
+  const newReceivables = data.addNewReceivables ? data.addNewReceivables.reduce((sum, item) => sum + (item.amount || 0), 0) : (data.cashAndSales.addedReceivables || 0);
   const otherSales = data.cashAndSales.otherSales || 0;
 
   // Sum of all expenses / deductions from main tables
@@ -53,8 +53,8 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
     ...(data.spices || [])
   ].reduce((sum, item) => sum + (item.amount || 0), 0);
 
-  // Expected cash = Opening + Added Receivables + Paid Old Receivables + Sales + Other Sales - Expenses - Visa - RT - Maestro
-  const expectedCash = openingCash + addedReceivables + paidOldReceivables + sales + otherSales - totalExpenses - visa - rt - maestro;
+  // Expected cash = Opening + New Receivables - Added Receivables + Sales + Other Sales - Expenses - Visa - RT - Maestro
+  const expectedCash = openingCash + newReceivables - addedReceivables + sales + otherSales - totalExpenses - visa - rt - maestro;
   const handoverDifference = actualCash - expectedCash; // Positive = surplus, Negative = shortage
 
   const handleApplyHandover = () => {

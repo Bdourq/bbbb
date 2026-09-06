@@ -171,18 +171,24 @@ export const EmployeeAdvancesSection = React.memo(() => {
               {data.map((emp, index) => {
                 const dailyWage = calculateWage(emp.startTime, emp.endTime, emp.hourlyRate);
                 const isOff = emp.employeeName.trim() && !emp.startTime && !emp.endTime;
+                const hasBoth = emp.employeeName.trim() && emp.startTime && emp.endTime;
+                const hasInOnly = emp.employeeName.trim() && emp.startTime && !emp.endTime && !isOff;
                 const isEmpEmpty = !emp.employeeName.trim() && !emp.startTime && !emp.endTime && !emp.amount;
                 return (
                   <tr 
                     key={emp.id} 
                     className={cn(
                       "border-b border-gray-300 transition-colors",
-                      isOff ? 'bg-rose-50/70 hover:bg-rose-100/70 border-rose-200' : 'hover:bg-gray-50',
+                      isOff ? 'bg-rose-50/70 hover:bg-rose-100/70 border-rose-200' :
+                      hasBoth ? 'bg-emerald-50/50 hover:bg-emerald-100/60 border-emerald-200' :
+                      hasInOnly ? 'bg-sky-50/50 hover:bg-sky-100/60 border-sky-200' : 'hover:bg-gray-50',
                       isEmpEmpty && "print:hidden export-empty-row"
                     )}
                   >
                     <td className={`px-1 py-1.5 border border-gray-300 text-center font-medium ${
-                      isOff ? 'text-rose-700 bg-rose-100/60 font-bold' : 'text-gray-500'
+                      isOff ? 'text-rose-700 bg-rose-100/60 font-bold' :
+                      hasBoth ? 'text-emerald-800 bg-emerald-100/60 font-bold' :
+                      hasInOnly ? 'text-sky-800 bg-sky-100/60 font-bold' : 'text-gray-500'
                     }`}>{index + 1}</td>
                     <td className="p-0 border border-gray-300">
                       <div className="flex items-center justify-between px-2 py-1.5">
@@ -197,7 +203,9 @@ export const EmployeeAdvancesSection = React.memo(() => {
                             }
                           }}
                           className={`w-full bg-transparent outline-none text-center focus:bg-amber-50 focus:font-bold ${
-                            isOff ? 'font-bold text-rose-900' : ''
+                            isOff ? 'font-bold text-rose-900' :
+                            hasBoth ? 'font-bold text-emerald-950' :
+                            hasInOnly ? 'font-bold text-sky-950' : ''
                           }`}
                           placeholder="اسم الموظف"
                         />
@@ -206,6 +214,12 @@ export const EmployeeAdvancesSection = React.memo(() => {
                         )}
                         {isOff && (
                           <span className="text-[10px] bg-rose-600 text-white font-extrabold px-2 py-0.5 rounded shadow-xs whitespace-nowrap ml-1 animate-pulse shrink-0" title="عطلة (OFF) لهذا اليوم">OFF</span>
+                        )}
+                        {hasBoth && (
+                          <span className="text-[10px] bg-emerald-600 text-white font-extrabold px-1.5 py-0.5 rounded shadow-xs whitespace-nowrap ml-1 shrink-0" title="تم تسجيل الدخول والخروج (مكتمل)">مكتمل</span>
+                        )}
+                        {hasInOnly && (
+                          <span className="text-[10px] bg-sky-600 text-white font-extrabold px-1.5 py-0.5 rounded shadow-xs whitespace-nowrap ml-1 animate-pulse shrink-0" title="تم تسجيل الدخول فقط (نشط / مستمر)">حاضر</span>
                         )}
                       </div>
                     </td>

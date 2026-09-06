@@ -288,7 +288,7 @@ export const useShiftStore = create<StoreState>((set, get) => ({
       snapshot.forEach(doc => {
         const docData = doc.data() as ShiftData;
         if (docData.cashierName === cashierName && docData.date.startsWith(monthPrefix)) {
-          const totalInventory = (docData.actualInventory.actualCash || 0) + (docData.actualInventory.visa || 0) + (docData.actualInventory.rt || 0) + (docData.actualInventory.maestro || 0) + (docData.actualInventory.priceDifference || 0) + (docData.actualInventory.advances || 0) + (docData.actualInventory.wallet || 0) +
+          const totalInventory = (docData.actualInventory.actualCash || 0) + (docData.actualInventory.visa || 0) + (docData.actualInventory.rt || 0) + (docData.actualInventory.maestro || 0) + (docData.actualInventory.priceDifference || 0) + (docData.actualInventory.advances || 0) + ((docData.ewallet || []).reduce((sum, item) => sum + (item.amount || 0), 0)) +
             (docData.purchases || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
             (docData.otherExpenses || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
             (docData.abuAbdullah || []).reduce((sum, item) => sum + (item.amount || 0), 0) +
@@ -304,9 +304,13 @@ export const useShiftStore = create<StoreState>((set, get) => ({
           const cashInfo = docData.cashAndSales;
           const addedReceivablesTotal = docData.addCashReceivables 
             ? docData.addCashReceivables.reduce((sum, item) => sum + (item.amount || 0), 0)
+            : (cashInfo?.paidOldReceivables || 0);
+
+          const newReceivablesTotal = docData.addNewReceivables
+            ? docData.addNewReceivables.reduce((sum, item) => sum + (item.amount || 0), 0)
             : (cashInfo?.addedReceivables || 0);
 
-          const totalExpectedCash = (cashInfo?.openingCash || 0) + addedReceivablesTotal + (cashInfo?.paidOldReceivables || 0) + (cashInfo?.sales || 0) + (cashInfo?.otherSales || 0);
+          const totalExpectedCash = (cashInfo?.openingCash || 0) + (cashInfo?.sales || 0) + (cashInfo?.otherSales || 0) + newReceivablesTotal - addedReceivablesTotal;
           const shortage = totalExpectedCash - totalInventory;
           if (shortage > 0) {
             totalShortage += shortage;
