@@ -12,6 +12,7 @@ import { SmartValidationModal } from './components/SmartValidationModal';
 import { LogoUpload } from './components/LogoUpload';
 import { CashierDeficitModal } from './components/CashierDeficitModal';
 import { ShiftHandoverModal } from './components/ShiftHandoverModal';
+import { ExportableA4Report } from './components/ExportableA4Report';
 import { Toaster, toast } from 'react-hot-toast';
 import { format, differenceInCalendarDays, parseISO } from 'date-fns';
 import { db } from './lib/firebase';
@@ -610,10 +611,10 @@ function App() {
 
         </div>
 
-      </div>
+    </div>
+      <ExportableA4Report />
     </div>
   );
 }
 
 export default App;
-

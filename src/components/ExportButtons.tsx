@@ -4,7 +4,7 @@ import { useShiftStore } from '../store/useShiftStore';
 import { useCalculations } from '../hooks/useCalculations';
 import { useValidationStore } from '../store/useValidationStore';
 import { SmartValidationModal } from './SmartValidationModal';
-import { exportToExcel, printDocument, exportToImage, exportToPdf, ExportImageTarget } from '../lib/exportUtils';
+import { printDocument, exportToImage, exportToPdf, ExportImageTarget } from '../lib/exportUtils';
 import toast from 'react-hot-toast';
 
 export const ExportButtons = () => {
@@ -124,14 +124,19 @@ export const ExportButtons = () => {
       });
     } else if (action === 'excel') {
       const loadingToast = toast.loading('جاري تجهيز وتصدير ملف Excel مطابق للقالب...');
-      exportToExcel(data, calc)
-        .then(() => {
-          toast.success('تم تصدير ملف Excel بنجاح 📊', { id: loadingToast });
-        })
-        .catch((err) => {
-          console.error(err);
-          toast.error('حدث خطأ أثناء تصدير Excel، يرجى المحاولة مرة أخرى', { id: loadingToast });
-        });
+      import('../lib/exportUtils').then(mod => {
+        mod.exportToExcel(data, calc)
+          .then(() => {
+            toast.success('تم تصدير ملف Excel بنجاح 📊', { id: loadingToast });
+          })
+          .catch((err) => {
+            console.error(err);
+            toast.error('حدث خطأ أثناء تصدير Excel، يرجى المحاولة مرة أخرى', { id: loadingToast });
+          });
+      }).catch((err) => {
+        console.error(err);
+        toast.error('حدث خطأ أثناء تحميل أداة التصدير', { id: loadingToast });
+      });
     }
   };
 

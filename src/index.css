@@ -320,10 +320,8 @@ input[type="number"]:focus {
 
 /* Export Mode for Landscape Image & PDF Capture (A4 Landscape aspect ratio 1.414) */
 .export-mode {
-  width: 1040px !important;
   max-width: none !important;
   margin: 0 auto !important;
-  padding: 16px 18px !important;
   background-color: #ffffff !important;
   color: #020617 !important;
   font-weight: 800 !important;
@@ -333,9 +331,18 @@ input[type="number"]:focus {
   box-sizing: border-box !important;
 }
 
+[id^="export-a4-"].export-mode {
+  width: 1123px !important;
+  max-width: 1123px !important;
+  min-height: 794px !important;
+  padding: 20px !important;
+  background-color: #ffffff !important;
+}
+
 #cash-report-export.export-mode,
 #employee-report-export.export-mode {
   width: 1040px !important;
+  padding: 16px 18px !important;
 }
 
 .export-mode .print\:hidden,

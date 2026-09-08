@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { db } from '../lib/firebase';
 import { doc, onSnapshot, setDoc, collection, getDocs, getDoc, query, orderBy, where, limit, deleteDoc } from 'firebase/firestore';
-import { format } from 'date-fns';
+import { format, addDays, parseISO } from 'date-fns';
 import { toEnglishNumbers } from '../lib/utils';
 import { calculateShiftMetrics } from '../lib/shiftCalculations';
 
@@ -122,6 +122,115 @@ const defaultEmployees = [
   "ابو مصعب (مياومة)", "عبد الله نوفل (مياومة)", "محمود نابلسي (مياومة)", "مهيب (مياومة)", "محمد طه (مياومة)", "زعبي / صاله (مياومة)"
 ];
 
+export interface MasterEmployee {
+  id: string;
+  name: string;
+  hourlyRate: number;
+}
+
+const MASTER_EMPLOYEES_KEY = 'albaik_master_employees_roster_v2';
+
+export const getLocalMasterEmployees = (): MasterEmployee[] => {
+  try {
+    const raw = localStorage.getItem(MASTER_EMPLOYEES_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.error('Error reading local master employees:', e);
+  }
+  return defaultEmployees.map((name, idx) => ({
+    id: String(idx + 1),
+    name,
+    hourlyRate: 0
+  }));
+};
+
+export const saveMasterEmployees = (roster: MasterEmployee[]) => {
+  try {
+    localStorage.setItem(MASTER_EMPLOYEES_KEY, JSON.stringify(roster));
+    safeSetDoc(doc(db, 'settings', 'employees'), {
+      roster,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  } catch (e) {
+    console.error('Error saving master employees:', e);
+  }
+};
+
+export const buildDefaultEmployeeAdvances = (roster?: MasterEmployee[]) => {
+  const list = roster && roster.length > 0 ? roster : getLocalMasterEmployees();
+  return list.map((emp, idx) => ({
+    id: emp.id || String(idx + 1),
+    employeeName: emp.name,
+    amount: 0,
+    notes: '',
+    startTime: '',
+    endTime: '',
+    hourlyRate: emp.hourlyRate || 0
+  }));
+};
+
+let syncEmployeeTimer: any = null;
+
+export const syncEmployeeChangesToNextDay = (currentDate: string, currentEmployees: ShiftData['employeeAdvances']) => {
+  if (syncEmployeeTimer) clearTimeout(syncEmployeeTimer);
+
+  syncEmployeeTimer = setTimeout(async () => {
+    try {
+      const validEmployees = currentEmployees.filter(emp => emp.employeeName && emp.employeeName.trim().length > 0);
+      const masterRoster: MasterEmployee[] = validEmployees.map(emp => ({
+        id: emp.id,
+        name: emp.employeeName.trim(),
+        hourlyRate: Number(emp.hourlyRate) || 0
+      }));
+
+      // Save master roster
+      saveMasterEmployees(masterRoster);
+
+      // Propagate to next day
+      const nextDate = format(addDays(parseISO(currentDate), 1), 'yyyy-MM-dd');
+      const nextShiftDoc = doc(db, 'shifts', nextDate);
+      const nextSnap = await getDoc(nextShiftDoc);
+
+      if (nextSnap.exists()) {
+        const nextData = nextSnap.data() as ShiftData;
+        if (!nextData.isClosed) {
+          const currentNext = nextData.employeeAdvances || [];
+          const updatedNextAdvances = masterRoster.map(masterEmp => {
+            const existing = currentNext.find(e => e.id === masterEmp.id) ||
+                             currentNext.find(e => e.employeeName && e.employeeName.trim() === masterEmp.name);
+            if (existing) {
+              return {
+                ...existing,
+                id: masterEmp.id,
+                employeeName: masterEmp.name,
+                hourlyRate: masterEmp.hourlyRate !== undefined ? masterEmp.hourlyRate : (existing.hourlyRate || 0)
+              };
+            }
+            return {
+              id: masterEmp.id,
+              employeeName: masterEmp.name,
+              amount: 0,
+              notes: '',
+              startTime: '',
+              endTime: '',
+              hourlyRate: masterEmp.hourlyRate || 0
+            };
+          });
+
+          await safeSetDoc(nextShiftDoc, { employeeAdvances: updatedNextAdvances }, { merge: true });
+        }
+      }
+    } catch (err) {
+      console.error('Error synchronizing employees to next day:', err);
+    }
+  }, 400);
+};
+
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
 const START_DATE = '2026-09-05';
@@ -182,15 +291,7 @@ const defaultState: ShiftData = {
     advances: null,
     wallet: 0,
   },
-  employeeAdvances: defaultEmployees.map((name, index) => ({
-    id: String(index + 1),
-    employeeName: name,
-    amount: 0,
-    notes: '',
-    startTime: '',
-    endTime: '',
-    hourlyRate: 0,
-  })),
+  employeeAdvances: buildDefaultEmployeeAdvances(),
 };
 
 type StoreState = {
@@ -251,7 +352,8 @@ export const cleanDataForFirestore = <T>(obj: T): T => {
 };
 
 const safeSetDoc = async (docRef: any, data: any, options?: any) => {
-  const payload = cleanDataForFirestore(data);
+  const toSave = { ...data, updatedAt: new Date().toISOString() };
+  const payload = cleanDataForFirestore(toSave);
   return options ? setDoc(docRef, payload, options) : setDoc(docRef, payload);
 };
 
@@ -393,6 +495,7 @@ export const useShiftStore = create<StoreState>((set, get) => ({
       data: { 
         ...defaultState, 
         date: newDate,
+        employeeAdvances: buildDefaultEmployeeAdvances(),
         cashAndSales: {
           ...defaultState.cashAndSales,
           openingCash: initialCash
@@ -407,6 +510,14 @@ export const useShiftStore = create<StoreState>((set, get) => ({
       if (state.data.isClosed) return state; // Prevent updates if closed
       const newData = updateNestedState(state.data, path, value);
       syncToFirestore(newData);
+
+      // If employee name or hourlyRate is edited, synchronize to master roster and next day
+      if (path[0] === 'employeeAdvances') {
+        const field = path[2];
+        if (field === 'employeeName' || field === 'hourlyRate') {
+          syncEmployeeChangesToNextDay(state.data.date, newData.employeeAdvances);
+        }
+      }
       return { data: newData };
     });
   },
@@ -450,6 +561,7 @@ export const useShiftStore = create<StoreState>((set, get) => ({
       ];
       const newData = { ...state.data, employeeAdvances: updatedEmployees };
       syncToFirestore(newData);
+      syncEmployeeChangesToNextDay(state.data.date, updatedEmployees);
       return { data: newData };
     });
   },
@@ -476,6 +588,7 @@ export const useShiftStore = create<StoreState>((set, get) => ({
       }
       const newData = { ...state.data, employeeAdvances: updatedEmployees };
       syncToFirestore(newData);
+      syncEmployeeChangesToNextDay(state.data.date, updatedEmployees);
       return { data: newData };
     });
   },
@@ -526,7 +639,7 @@ export const useShiftStore = create<StoreState>((set, get) => ({
           actualCash: 0,
           expectedCash: 0,
           difference: 0,
-          timestamp: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+          timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
         }),
         morningCashier: morning,
         eveningCashier: evening
@@ -576,7 +689,7 @@ export const useShiftStore = create<StoreState>((set, get) => ({
           actualCash: 0,
           expectedCash: 0,
           difference: 0,
-          timestamp: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+          timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
         }),
         morningCashier: newMorning,
         eveningCashier: newEvening
@@ -650,6 +763,12 @@ export const useShiftStore = create<StoreState>((set, get) => ({
   },
 
   syncFromRemote: (remoteData: ShiftData) => {
+    const currentData = get().data;
+    const incomingTime = new Date((remoteData as any).updatedAt || 0).getTime();
+    const localTime = new Date((currentData as any).updatedAt || 0).getTime();
+    if (incomingTime <= localTime && incomingTime > 0 && localTime > 0) {
+      return;
+    }
     // Migration for older documents
     if (!remoteData.addCashReceivables || remoteData.addCashReceivables.length === 0) {
       remoteData.addCashReceivables = [{
@@ -682,6 +801,16 @@ export const useShiftStore = create<StoreState>((set, get) => ({
     get().fetchPreviousDayCash(date);
     const shiftDoc = doc(db, 'shifts', date);
     
+    // Sync remote master employee settings if available
+    getDoc(doc(db, 'settings', 'employees')).then((snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data?.roster && Array.isArray(data.roster) && data.roster.length > 0) {
+          localStorage.setItem(MASTER_EMPLOYEES_KEY, JSON.stringify(data.roster));
+        }
+      }
+    }).catch(err => console.warn('Could not fetch settings/employees:', err));
+
     // Subscribe to real-time changes
     const unsubscribe = onSnapshot(shiftDoc, async (docSnap) => {
       // Ignore incoming remote data if the user has typed/updated within the last 2 seconds
@@ -716,6 +845,7 @@ export const useShiftStore = create<StoreState>((set, get) => ({
         const currentData: ShiftData = {
           ...defaultState,
           date,
+          employeeAdvances: buildDefaultEmployeeAdvances(),
           addCashReceivables: [{ id: generateId(), label: '', amount: 0 }],
           addNewReceivables: [{ id: generateId(), label: '', amount: 0 }],
           cashAndSales: {

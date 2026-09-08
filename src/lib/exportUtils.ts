@@ -45,95 +45,176 @@ export const exportToExcel = async (data: ShiftData, calc: any) => {
   window.URL.revokeObjectURL(url);
 };
 
-export const printDocument = () => {
-  window.print();
-};
 
 export type ExportImageTarget = 'both' | 'cash' | 'employees';
 
+
 const EXPORT_FILTER = (node: HTMLElement) => {
-  if (node?.hasAttribute && node.hasAttribute('data-html2canvas-ignore')) {
+  const exclusionClasses = ['print:hidden', 'no-export', 'lucide'];
+  if (node.classList && exclusionClasses.some(cls => node.classList.contains(cls))) {
     return false;
-  }
-  if (node?.classList && typeof node.classList.contains === 'function') {
-    if (node.classList.contains('print:hidden') || node.classList.contains('no-print')) {
-      return false;
-    }
   }
   return true;
 };
 
 export const exportToImage = async (date: string, target: ExportImageTarget = 'both') => {
   const dayLabel = getDayLabel(date);
-
-  const captureElementDataUrl = async (elementId: string, fallbackId: string): Promise<string | null> => {
-    const element = document.getElementById(elementId) || document.getElementById(fallbackId);
-    if (!element) {
-      console.warn(`Element with ID '${elementId}' or '${fallbackId}' not found for export.`);
-      return null;
-    }
-
+  
+  const captureElementDataUrl = async (elementId: string): Promise<string | null> => {
+    const element = document.getElementById(elementId);
+    if (!element) return null;
     try {
       element.classList.add('export-mode');
       await new Promise(resolve => setTimeout(resolve, 300));
-
-      // Ultra-high resolution capture (pixelRatio 3.5 = ~350-400 DPI equivalent)
       const dataUrl = await toPng(element, {
-        pixelRatio: 3.5,
+        pixelRatio: 4,
         backgroundColor: '#ffffff',
-        filter: EXPORT_FILTER,
-        style: {
-          transform: 'scale(1)',
-          transformOrigin: 'top left',
-          margin: '0',
-          boxSizing: 'border-box'
-        }
+        style: { transform: 'scale(1)', transformOrigin: 'top left', margin: '0' }
       });
-
       element.classList.remove('export-mode');
       return dataUrl;
     } catch (error) {
       element.classList.remove('export-mode');
       console.error(`Error capturing image (${elementId}):`, error);
-      throw error;
+      return null;
     }
   };
 
-  if (target === 'both') {
-    // 1. Capture Cash Report image with ultra-high resolution
-    const cashDataUrl = await captureElementDataUrl('cash-report-export', 'cash-report-content');
-    
-    await new Promise(resolve => setTimeout(resolve, 250));
+  const getCashPage = async (pageIdx: number): Promise<string | null> => {
+    if (pageIdx === 1) {
+      return (
+        await captureElementDataUrl('export-a4-page-1') ||
+        await captureElementDataUrl('export-a4-cash-1')
+      );
+    }
+    return await captureElementDataUrl(`export-a4-cash-${pageIdx}`);
+  };
 
-    // 2. Capture Employee Report image with ultra-high resolution
-    const empDataUrl = await captureElementDataUrl('employee-report-export', 'employeeAdvances');
+  const getEmpPage = async (pageIdx: number): Promise<string | null> => {
+    if (pageIdx === 1) {
+      return (
+        await captureElementDataUrl('export-a4-page-2') ||
+        await captureElementDataUrl('export-a4-emp-1')
+      );
+    }
+    return (
+      await captureElementDataUrl(`export-a4-page-${pageIdx + 1}`) ||
+      await captureElementDataUrl(`export-a4-emp-${pageIdx}`)
+    );
+  };
 
-    if (!cashDataUrl && !empDataUrl) {
-      throw new Error('لم يتم العثور على عناصر التقرير للتصدير.');
+  if (target === 'cash') {
+    const cashPages: { name: string; base64: string; dataUrl: string }[] = [];
+    let finIndex = 1;
+    while (true) {
+      const pageDataUrl = await getCashPage(finIndex);
+      if (!pageDataUrl) break;
+      const base64 = pageDataUrl.replace(/^data:image\/png;base64,/, '');
+      cashPages.push({
+        name: `تقرير_إغلاق_الكاش_اليومي_صفحة_${finIndex}_${dayLabel}_${date}.png`,
+        base64,
+        dataUrl: pageDataUrl
+      });
+      finIndex++;
     }
 
-    // 3. Package both images inside a single ZIP file named by Day and Date
+    if (cashPages.length === 0) return;
+
+    if (cashPages.length === 1) {
+      const link = document.createElement('a');
+      link.download = `تقرير_إغلاق_الكاش_اليومي_${dayLabel}_${date}.png`;
+      link.href = cashPages[0].dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      const zip = new JSZip();
+      const folderName = `تقرير_إغلاق_الكاش_${dayLabel}_${date}`;
+      const folder = zip.folder(folderName) || zip;
+      cashPages.forEach((cp, idx) => {
+        folder.file(`${idx + 1}_تقرير_إغلاق_الكاش_صفحة_${idx + 1}_${dayLabel}_${date}.png`, cp.base64, { base64: true });
+      });
+      const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+      const link = document.createElement('a');
+      link.download = `تقرير_إغلاق_الكاش_${dayLabel}_${date}.zip`;
+      link.href = URL.createObjectURL(zipBlob);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(link.href), 1500);
+    }
+  } else if (target === 'employees') {
+    const empPages: { name: string; base64: string; dataUrl: string }[] = [];
+    let empIndex = 1;
+    while (true) {
+      const pageDataUrl = await getEmpPage(empIndex);
+      if (!pageDataUrl) break;
+      const base64 = pageDataUrl.replace(/^data:image\/png;base64,/, '');
+      empPages.push({
+        name: `تقرير_سلف_وحضور_الموظفين_صفحة_${empIndex}_${dayLabel}_${date}.png`,
+        base64,
+        dataUrl: pageDataUrl
+      });
+      empIndex++;
+    }
+
+    if (empPages.length === 0) return;
+
+    if (empPages.length === 1) {
+      const link = document.createElement('a');
+      link.download = `تقرير_سلف_وحضور_الموظفين_${dayLabel}_${date}.png`;
+      link.href = empPages[0].dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      const zip = new JSZip();
+      const folderName = `تقرير_سلف_وحضور_الموظفين_${dayLabel}_${date}`;
+      const folder = zip.folder(folderName) || zip;
+      empPages.forEach((ep, idx) => {
+        folder.file(`${idx + 1}_تقرير_سلف_وحضور_الموظفين_صفحة_${idx + 1}_${dayLabel}_${date}.png`, ep.base64, { base64: true });
+      });
+      const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+      const link = document.createElement('a');
+      link.download = `تقرير_سلف_وحضور_الموظفين_${dayLabel}_${date}.zip`;
+      link.href = URL.createObjectURL(zipBlob);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(link.href), 1500);
+    }
+  } else if (target === 'both') {
     const zip = new JSZip();
     const folderName = `تقرير_إغلاق_${dayLabel}_${date}`;
     const folder = zip.folder(folderName) || zip;
+    
+    let fileOrder = 1;
 
-    if (cashDataUrl) {
-      const base64Cash = cashDataUrl.replace(/^data:image\/png;base64,/, '');
-      folder.file(`1_تقرير_إغلاق_الكاش_اليومي_${dayLabel}_${date}.png`, base64Cash, { base64: true });
+    // Financial pages
+    let finIndex = 1;
+    while (true) {
+      const pageDataUrl = await getCashPage(finIndex);
+      if (!pageDataUrl) break;
+      const base64 = pageDataUrl.replace(/^data:image\/png;base64,/, '');
+      folder.file(`${fileOrder}_تقرير_إغلاق_الكاش_اليومي_صفحة_${finIndex}_${dayLabel}_${date}.png`, base64, { base64: true });
+      fileOrder++;
+      finIndex++;
     }
 
-    if (empDataUrl) {
-      const base64Emp = empDataUrl.replace(/^data:image\/png;base64,/, '');
-      folder.file(`2_تقرير_سلف_وحضور_الموظفين_${dayLabel}_${date}.png`, base64Emp, { base64: true });
+    // Employee pages
+    let empIndex = 1;
+    while (true) {
+      const pageDataUrl = await getEmpPage(empIndex);
+      if (!pageDataUrl) break;
+      const base64 = pageDataUrl.replace(/^data:image\/png;base64,/, '');
+      folder.file(`${fileOrder}_تقرير_سلف_وحضور_الموظفين_صفحة_${empIndex}_${dayLabel}_${date}.png`, base64, { base64: true });
+      fileOrder++;
+      empIndex++;
     }
 
-    // 4. Generate and download the ZIP file
-    const zipBlob = await zip.generateAsync({
-      type: 'blob',
-      compression: 'DEFLATE',
-      compressionOptions: { level: 6 }
-    });
+    if (fileOrder === 1) return;
 
+    const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
     const zipFilename = `تقرير_إغلاق_${dayLabel}_${date}.zip`;
     const link = document.createElement('a');
     link.download = zipFilename;
@@ -142,260 +223,114 @@ export const exportToImage = async (date: string, target: ExportImageTarget = 'b
     link.click();
     document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(link.href), 1500);
-    return;
-  }
-
-  // Single target export (download PNG directly if specifically requested)
-  if (target === 'cash') {
-    const cashDataUrl = await captureElementDataUrl('cash-report-export', 'cash-report-content');
-    if (cashDataUrl) {
-      const filename = `تقرير_إغلاق_الكاش_اليومي_${dayLabel}_${date}.png`;
-      const link = document.createElement('a');
-      link.download = filename;
-      link.href = cashDataUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-  }
-
-  if (target === 'employees') {
-    const empDataUrl = await captureElementDataUrl('employee-report-export', 'employeeAdvances');
-    if (empDataUrl) {
-      const filename = `تقرير_سلف_وحضور_الموظفين_${dayLabel}_${date}.png`;
-      const link = document.createElement('a');
-      link.download = filename;
-      link.href = empDataUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
   }
 };
 
-// -------------------------------------------------------------
-// MULTI-PAGE PDF EXPORT (ROW-SAFE PAGINATION + HEADERS & FOOTERS)
-// -------------------------------------------------------------
-async function sliceElementAtRowBoundaries(
-  contentEl: HTMLElement,
-  maxSliceHeightPx: number,
-  pixelRatio = 2.5
-): Promise<string[]> {
-  const containerRect = contentEl.getBoundingClientRect();
-  const breakElements = Array.from(contentEl.querySelectorAll('tr, .card-container'));
-
-  const boundariesSet = new Set<number>();
-  breakElements.forEach((el) => {
-    const rect = el.getBoundingClientRect();
-    if (rect.height > 0 && (el as HTMLElement).offsetParent !== null) {
-      const bottom = Math.round(rect.bottom - containerRect.top);
-      if (bottom > 0) {
-        boundariesSet.add(bottom);
-      }
-    }
-  });
-
-  const splitPoints = Array.from(boundariesSet).sort((a, b) => a - b);
-
-  const fullDataUrl = await toPng(contentEl, {
-    pixelRatio: pixelRatio,
-    backgroundColor: '#ffffff',
-    filter: EXPORT_FILTER,
-  });
-
-  const img = new Image();
-  await new Promise((resolve, reject) => {
-    img.onload = resolve;
-    img.onerror = reject;
-    img.src = fullDataUrl;
-  });
-
-  const fullWidth = img.width;
-  const fullHeight = img.height;
-  const scale = fullWidth / contentEl.offsetWidth;
-  const canvasSplits = splitPoints.map(p => Math.round(p * scale));
-
-  const sliceDataUrls: string[] = [];
-  let currentY = 0;
-
-  while (currentY < fullHeight - 10) {
-    const remainingHeight = fullHeight - currentY;
-    if (remainingHeight <= maxSliceHeightPx) {
-      const sliceCanvas = document.createElement('canvas');
-      sliceCanvas.width = fullWidth;
-      sliceCanvas.height = remainingHeight;
-      const ctx = sliceCanvas.getContext('2d')!;
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, fullWidth, remainingHeight);
-      ctx.drawImage(img, 0, currentY, fullWidth, remainingHeight, 0, 0, fullWidth, remainingHeight);
-      sliceDataUrls.push(sliceCanvas.toDataURL('image/png'));
-      break;
-    }
-
-    const targetY = currentY + maxSliceHeightPx;
-    // Find highest split point between 40% and 100% of maxSliceHeightPx
-    const candidateSplits = canvasSplits.filter(p => p > currentY + (maxSliceHeightPx * 0.4) && p <= targetY);
-
-    let splitY = targetY;
-    if (candidateSplits.length > 0) {
-      splitY = candidateSplits[candidateSplits.length - 1];
-    }
-
-    const sliceHeight = splitY - currentY;
-    const sliceCanvas = document.createElement('canvas');
-    sliceCanvas.width = fullWidth;
-    sliceCanvas.height = sliceHeight;
-    const ctx = sliceCanvas.getContext('2d')!;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, fullWidth, sliceHeight);
-    ctx.drawImage(img, 0, currentY, fullWidth, sliceHeight, 0, 0, fullWidth, sliceHeight);
-    sliceDataUrls.push(sliceCanvas.toDataURL('image/png'));
-
-    currentY = splitY;
-  }
-
-  return sliceDataUrls;
-}
-
 export const exportToPdf = async (date: string) => {
   const dayLabel = getDayLabel(date);
-  const cashContainer = document.getElementById('cash-report-export');
-  const empContainer = document.getElementById('employee-report-export');
-  const cashContent = document.getElementById('cash-report-content') || cashContainer;
-  const empContent = document.getElementById('employeeAdvances') || empContainer;
-
-  if (!cashContainer) return;
-
-  try {
-    // 1. Prepare export mode on both containers
-    cashContainer.classList.add('export-mode');
-    if (empContainer) empContainer.classList.add('export-mode');
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    // Dimensions: A4 Landscape: 297mm x 210mm
-    const pdf = new jsPDF({
-      orientation: 'landscape',
-      unit: 'mm',
-      format: 'a4',
-    });
-
-    const pageWidthMm = 297;
-    const pageHeightMm = 210;
-    const marginX = 8;
-    const contentWidthMm = pageWidthMm - (marginX * 2); // 281mm
-
-    // Reserved vertical space:
-    // Header at top (y=6, height ~24mm)
-    // No signature footer at bottom as requested, maximizing table visibility
-    // Available middle height for table slice: 210 - 6 - 25 - 5 = 174mm
-    const availableMiddleHeightMm = 174;
-    const contentWidthPx = (cashContent as HTMLElement).offsetWidth || 1040;
-    const maxSliceHeightPx = Math.round((availableMiddleHeightMm / contentWidthMm) * contentWidthPx * 2.5);
-
-    // 2. Slice cash content safely without breaking rows
-    const cashSlices = await sliceElementAtRowBoundaries(cashContent as HTMLElement, maxSliceHeightPx, 2.5);
-
-    // 3. Slice employee content safely if present
-    let empSlices: string[] = [];
-    if (empContainer && empContent) {
-      empSlices = await sliceElementAtRowBoundaries(empContent as HTMLElement, maxSliceHeightPx, 2.5);
-    }
-
-    const totalPages = cashSlices.length + empSlices.length;
-
-    // Helper to capture a header or footer element
-    const captureBlock = async (el: HTMLElement) => {
-      const dataUrl = await toPng(el, {
-        pixelRatio: 2.5,
+  
+  const captureElementDataUrl = async (elementId: string): Promise<string | null> => {
+    const element = document.getElementById(elementId);
+    if (!element) return null;
+    try {
+      element.classList.add('export-mode');
+      await new Promise(resolve => setTimeout(resolve, 300));
+      const dataUrl = await toPng(element, {
+        pixelRatio: 4,
         backgroundColor: '#ffffff',
-        filter: EXPORT_FILTER,
+        style: { transform: 'scale(1)', transformOrigin: 'top left', margin: '0' }
       });
-      const img = new Image();
-      await new Promise(res => { img.onload = res; img.src = dataUrl; });
-      const heightMm = (img.height * contentWidthMm) / img.width;
-      return { dataUrl, heightMm };
-    };
-
-    const cashHeaderEl = document.getElementById('export-header-cash') || cashContainer.querySelector('.export-header') as HTMLElement;
-    const empHeaderEl = document.getElementById('export-header-employee') || empContainer?.querySelector('.export-header') as HTMLElement;
-    const cashFooterEl = document.getElementById('export-footer-cash') || cashContainer.querySelector('.export-footer') as HTMLElement;
-    const empFooterEl = document.getElementById('export-footer-employee') || empContainer?.querySelector('.export-footer') as HTMLElement;
-
-    let currentPage = 1;
-
-    // 4. Render Cash Slices
-    for (let i = 0; i < cashSlices.length; i++) {
-      if (currentPage > 1) {
-        pdf.addPage();
-      }
-
-      // Draw Header
-      let headerHeight = 22;
-      if (cashHeaderEl) {
-        const h = await captureBlock(cashHeaderEl);
-        headerHeight = Math.min(h.heightMm, 25);
-        pdf.addImage(h.dataUrl, 'PNG', marginX, 6, contentWidthMm, headerHeight);
-      }
-
-      // Draw Content Slice
-      const sliceImg = new Image();
-      await new Promise(res => { sliceImg.onload = res; sliceImg.src = cashSlices[i]; });
-      const sliceHeightMm = (sliceImg.height * contentWidthMm) / sliceImg.width;
-      const sliceY = 6 + headerHeight + 2;
-      pdf.addImage(cashSlices[i], 'PNG', marginX, sliceY, contentWidthMm, sliceHeightMm);
-
-      // Draw Footer on last cash slice or all pages
-      if (cashFooterEl && (i === cashSlices.length - 1)) {
-        const f = await captureBlock(cashFooterEl);
-        const footerY = Math.min(sliceY + sliceHeightMm + 2, pageHeightMm - f.heightMm - 4);
-        pdf.addImage(f.dataUrl, 'PNG', marginX, footerY, contentWidthMm, f.heightMm);
-      }
-
-      currentPage++;
+      element.classList.remove('export-mode');
+      return dataUrl;
+    } catch (error) {
+      element.classList.remove('export-mode');
+      return null;
     }
+  };
 
-    // 5. Render Employee Slices
-    for (let i = 0; i < empSlices.length; i++) {
-      pdf.addPage();
-
-      // Draw Header
-      let headerHeight = 22;
-      if (empHeaderEl) {
-        const h = await captureBlock(empHeaderEl);
-        headerHeight = Math.min(h.heightMm, 25);
-        pdf.addImage(h.dataUrl, 'PNG', marginX, 6, contentWidthMm, headerHeight);
-      }
-
-      // Draw Content Slice
-      const sliceImg = new Image();
-      await new Promise(res => { sliceImg.onload = res; sliceImg.src = empSlices[i]; });
-      const sliceHeightMm = (sliceImg.height * contentWidthMm) / sliceImg.width;
-      const sliceY = 6 + headerHeight + 2;
-      pdf.addImage(empSlices[i], 'PNG', marginX, sliceY, contentWidthMm, sliceHeightMm);
-
-      // Draw Footer on last employee slice
-      if (empFooterEl && (i === empSlices.length - 1)) {
-        const f = await captureBlock(empFooterEl);
-        const footerY = Math.min(sliceY + sliceHeightMm + 2, pageHeightMm - f.heightMm - 4);
-        pdf.addImage(f.dataUrl, 'PNG', marginX, footerY, contentWidthMm, f.heightMm);
-      }
-
-      currentPage++;
+  const getCashPage = async (pageIdx: number): Promise<string | null> => {
+    if (pageIdx === 1) {
+      return (
+        await captureElementDataUrl('export-a4-page-1') ||
+        await captureElementDataUrl('export-a4-cash-1')
+      );
     }
+    return await captureElementDataUrl(`export-a4-cash-${pageIdx}`);
+  };
 
-    // 6. Cleanup export mode
-    cashContainer.classList.remove('export-mode');
-    if (empContainer) empContainer.classList.remove('export-mode');
+  const getEmpPage = async (pageIdx: number): Promise<string | null> => {
+    if (pageIdx === 1) {
+      return (
+        await captureElementDataUrl('export-a4-page-2') ||
+        await captureElementDataUrl('export-a4-emp-1')
+      );
+    }
+    return (
+      await captureElementDataUrl(`export-a4-page-${pageIdx + 1}`) ||
+      await captureElementDataUrl(`export-a4-emp-${pageIdx}`)
+    );
+  };
 
-    // Remove any temp badges added
-    document.querySelectorAll('.pdf-page-number').forEach(el => el.remove());
+  // Dimensions: A4 Landscape: 297mm x 210mm
+  const pdf = new jsPDF({
+    orientation: 'landscape',
+    unit: 'mm',
+    format: 'a4',
+    compress: true,
+  });
 
-    pdf.save(`تقرير_إغلاق_الكاش_${dayLabel}_${date}.pdf`);
-  } catch (error) {
-    if (cashContainer) cashContainer.classList.remove('export-mode');
-    if (empContainer) empContainer.classList.remove('export-mode');
-    document.querySelectorAll('.pdf-page-number').forEach(el => el.remove());
-    console.error('Error exporting PDF:', error);
-    throw error;
+  const pageWidthMm = 297;
+  const pageHeightMm = 210;
+  let isFirstPage = true;
+
+  const appendPageToPdf = (pageDataUrl: string) => {
+    if (!isFirstPage) {
+      pdf.addPage('a4', 'landscape');
+    }
+    const imgProps = pdf.getImageProperties(pageDataUrl);
+    const aspect = imgProps.height / imgProps.width;
+    const calculatedHeightMm = pageWidthMm * aspect;
+
+    if (calculatedHeightMm <= pageHeightMm + 2) {
+      pdf.addImage(pageDataUrl, 'PNG', 0, 0, pageWidthMm, Math.min(calculatedHeightMm, pageHeightMm), undefined, 'FAST');
+    } else if (calculatedHeightMm <= 235) {
+      pdf.addImage(pageDataUrl, 'PNG', 0, 0, pageWidthMm, pageHeightMm, undefined, 'FAST');
+    } else {
+      let remaining = calculatedHeightMm;
+      let pos = 0;
+      let isFirstSlice = true;
+      while (remaining > 0) {
+        if (!isFirstSlice) pdf.addPage('a4', 'landscape');
+        pdf.addImage(pageDataUrl, 'PNG', 0, pos, pageWidthMm, calculatedHeightMm, undefined, 'FAST');
+        remaining -= pageHeightMm;
+        pos -= pageHeightMm;
+        isFirstSlice = false;
+      }
+    }
+    isFirstPage = false;
+  };
+
+  // Render all Cash pages
+  let finIndex = 1;
+  while (true) {
+    const pageDataUrl = await getCashPage(finIndex);
+    if (!pageDataUrl) break;
+    appendPageToPdf(pageDataUrl);
+    finIndex++;
   }
+
+  // Render all Employee pages
+  let empIndex = 1;
+  while (true) {
+    const pageDataUrl = await getEmpPage(empIndex);
+    if (!pageDataUrl) break;
+    appendPageToPdf(pageDataUrl);
+    empIndex++;
+  }
+
+  pdf.save(`تقرير_إغلاق_${dayLabel}_${date}.pdf`);
+};
+
+export const printDocument = () => {
+  window.print();
 };

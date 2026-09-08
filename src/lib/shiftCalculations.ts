@@ -4,6 +4,28 @@ import { calculateWage } from '../components/sections2';
 export const sumLineItems = (items?: Array<{ amount?: number | string }>) =>
   (items || []).reduce((acc, item) => acc + (Number(item?.amount) || 0), 0);
 
+export function applyEmployeeFieldUpdate(
+  employees: Array<any>,
+  id: string,
+  field: string,
+  value: any,
+  defaultHourlyRate = 0
+) {
+  return employees.map(emp => {
+    if (emp.id !== id) return emp;
+    const updated = { ...emp, [field]: value };
+    if (field === 'employmentType') {
+      if (value === 'daily') {
+        updated.hourlyRate = updated.hourlyRate || defaultHourlyRate;
+      } else if (value === 'monthly') {
+        updated.hourlyRate = 0;
+        updated.calculatedWage = 0;
+      }
+    }
+    return updated;
+  });
+}
+
 export interface ShiftCalculationsResult {
   totalCash: number;
   totalExpenses: number;
