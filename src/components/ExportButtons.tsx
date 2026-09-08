@@ -38,34 +38,15 @@ export const ExportButtons = () => {
 
     const { isValid, errorList } = triggerValidation(data, calc.totalCollected, calc.totalInventory);
 
-    // If there is any deficit/surplus, we always require the user to confirm the cashier & shift in the modal
-    const totalDiff = calc.cashShortage > 0.009 ? calc.cashShortage : calc.cashSurplus > 0.009 ? calc.cashSurplus : 0;
-    const hasDiff = totalDiff > 0.009;
-
-    const morningDiff = data.shiftDifferences?.morning;
-    const eveningDiff = data.shiftDifferences?.evening;
-    const hasAssignedCashier = Boolean(
-      (morningDiff && morningDiff.amount > 0 && morningDiff.cashierName?.trim()) ||
-      (eveningDiff && eveningDiff.amount > 0 && eveningDiff.cashierName?.trim())
-    );
-
     if (!isValid) {
       toast.error(`⚠️ يوجد ${errorList.length} نواقص يجب استكمالها! تم تظليل الجداول بالأحمر.`);
       setShowValidationModal(true);
       return;
     }
 
-    // If there's a difference and cashier/shift is not yet assigned, show modal to force selection
-    if (hasDiff && !hasAssignedCashier) {
-      toast('يرجى تحديد الكاشير والشفت المسؤول عن فارق الكاش لإتمام الإغلاق', { icon: '⚠️' });
-      setShowValidationModal(true);
-      return;
-    }
-
-    // If validation passed and difference is assigned (or exact match), confirm and close
-    if (window.confirm('هل أنت متأكد أنك تريد إغلاق الشفت؟ لن تتمكن من التعديل عليه بعد الإغلاق.')) {
-      performShiftClose();
-    }
+    // Always mandatory step: open validation / cashier selection modal before closing shift
+    toast('يرجى مراجعة وتأكيد اختيار الكاشير والشفت لإتمام إغلاق الشفت', { icon: '🔒' });
+    setShowValidationModal(true);
   };
 
   const performShiftClose = () => {
