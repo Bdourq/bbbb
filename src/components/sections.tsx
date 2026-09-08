@@ -399,8 +399,8 @@ export const ActualInventorySection = React.memo(() => {
   // الإسناد لكاشير واحد بكامل المبلغ مع تحديد الشفت
   const handleAssignSingle = (selectedName: string, shiftLabel: 'صباحي' | 'مسائي' | 'كامل اليوم' = 'مسائي') => {
     if (!selectedName) return;
-    const isBdour = selectedName.includes('البدور');
-    const otherName = isBdour ? 'الشحادات' : 'البدور';
+    const isBdour = selectedName.includes('قصي') || selectedName.includes('البدور');
+    const otherName = isBdour ? 'أمجد شحادات' : 'قصي البدور';
 
     if (shiftLabel === 'صباحي') {
       updateData(['shiftDifferences', 'morning'], {
@@ -451,8 +451,8 @@ export const ActualInventorySection = React.memo(() => {
   const handleSplitFiftyFifty = () => {
     const half = Number((totalDiffAmount / 2).toFixed(2));
     const remainder = Number((totalDiffAmount - half).toFixed(2));
-    const c1 = morningDiff.cashierName || 'البدور';
-    const c2 = eveningDiff.cashierName || cashierName?.replace(/\s*\(.*?\)/, '') || 'الشحادات';
+    const c1 = morningDiff.cashierName || 'قصي البدور';
+    const c2 = eveningDiff.cashierName || cashierName?.replace(/\s*\(.*?\)/, '') || 'أمجد شحادات';
 
     updateData(['shiftDifferences', 'morning'], {
       cashierName: c1,
@@ -471,8 +471,8 @@ export const ActualInventorySection = React.memo(() => {
 
   // تبديل الكاشيرية بين الشفت الصباحي والمسائي بضغطة واحدة
   const handleSwapCashiers = () => {
-    const c1 = morningDiff.cashierName || 'البدور';
-    const c2 = eveningDiff.cashierName || 'الشحادات';
+    const c1 = morningDiff.cashierName || 'قصي البدور';
+    const c2 = eveningDiff.cashierName || 'أمجد شحادات';
     updateData(['shiftDifferences', 'morning', 'cashierName'], c2);
     updateData(['shiftDifferences', 'evening', 'cashierName'], c1);
   };

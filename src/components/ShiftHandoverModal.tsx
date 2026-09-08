@@ -112,9 +112,9 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
                 className="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-bold bg-white"
               >
                 <option value="">-- اختر الكاشير --</option>
-                <option value="البدور">البدور</option>
-                <option value="الشحادات">الشحادات</option>
-                <option value="الهياجنه">الهياجنه</option>
+                <option value="قصي البدور">قصي البدور</option>
+                <option value="أمجد شحادات">أمجد شحادات</option>
+                <option value="هياجنه">هياجنه</option>
               </select>
             </div>
             <div>
@@ -125,9 +125,9 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
                 className="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-bold bg-white"
               >
                 <option value="">-- اختر الكاشير --</option>
-                <option value="البدور">البدور</option>
-                <option value="الشحادات">الشحادات</option>
-                <option value="الهياجنه">الهياجنه</option>
+                <option value="قصي البدور">قصي البدور</option>
+                <option value="أمجد شحادات">أمجد شحادات</option>
+                <option value="هياجنه">هياجنه</option>
               </select>
             </div>
           </div>

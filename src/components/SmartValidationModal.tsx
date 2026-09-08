@@ -296,85 +296,85 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   <button
                     type="button"
-                    onClick={() => handleAssignSingle('البدور', 'صباحي')}
+                    onClick={() => handleAssignSingle('قصي البدور', 'صباحي')}
                     className={cn(
                       "p-2.5 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer",
-                      (morningCashier === 'البدور' && morningAmount > 0)
+                      (morningCashier.includes('قصي') && morningAmount > 0)
                         ? "bg-amber-50 border-amber-500 text-amber-950 font-black ring-2 ring-amber-300"
                         : "bg-gray-50/80 border-gray-200 hover:bg-amber-50/50 text-gray-800"
                     )}
                   >
-                    <span className="text-xs font-black">☀️ البدور</span>
+                    <span className="text-xs font-black">☀️ قصي البدور</span>
                     <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">شفت صباحي</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => handleAssignSingle('البدور', 'مسائي')}
+                    onClick={() => handleAssignSingle('قصي البدور', 'مسائي')}
                     className={cn(
                       "p-2.5 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer",
-                      (eveningCashier === 'البدور' && eveningAmount > 0)
+                      (eveningCashier.includes('قصي') && eveningAmount > 0)
                         ? "bg-indigo-50 border-indigo-500 text-indigo-950 font-black ring-2 ring-indigo-300"
                         : "bg-gray-50/80 border-gray-200 hover:bg-indigo-50/50 text-gray-800"
                     )}
                   >
-                    <span className="text-xs font-black">🌙 البدور</span>
+                    <span className="text-xs font-black">🌙 قصي البدور</span>
                     <span className="text-[10px] font-bold text-indigo-800 bg-indigo-100 px-2 py-0.5 rounded">شفت مسائي</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => handleAssignSingle('الشحادات', 'صباحي')}
+                    onClick={() => handleAssignSingle('أمجد شحادات', 'صباحي')}
                     className={cn(
                       "p-2.5 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer",
-                      (morningCashier === 'الشحادات' && morningAmount > 0)
+                      (morningCashier.includes('أمجد') && morningAmount > 0)
                         ? "bg-amber-50 border-amber-500 text-amber-950 font-black ring-2 ring-amber-300"
                         : "bg-gray-50/80 border-gray-200 hover:bg-amber-50/50 text-gray-800"
                     )}
                   >
-                    <span className="text-xs font-black">☀️ الشحادات</span>
+                    <span className="text-xs font-black">☀️ أمجد شحادات</span>
                     <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">شفت صباحي</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => handleAssignSingle('الشحادات', 'مسائي')}
+                    onClick={() => handleAssignSingle('أمجد شحادات', 'مسائي')}
                     className={cn(
                       "p-2.5 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer",
-                      (eveningCashier === 'الشحادات' && eveningAmount > 0)
+                      (eveningCashier.includes('أمجد') && eveningAmount > 0)
                         ? "bg-indigo-50 border-indigo-500 text-indigo-950 font-black ring-2 ring-indigo-300"
                         : "bg-gray-50/80 border-gray-200 hover:bg-indigo-50/50 text-gray-800"
                     )}
                   >
-                    <span className="text-xs font-black">🌙 الشحادات</span>
+                    <span className="text-xs font-black">🌙 أمجد شحادات</span>
                     <span className="text-[10px] font-bold text-indigo-800 bg-indigo-100 px-2 py-0.5 rounded">شفت مسائي</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => handleAssignSingle('الهياجنه', 'صباحي')}
+                    onClick={() => handleAssignSingle('هياجنه', 'صباحي')}
                     className={cn(
                       "p-2.5 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer",
-                      (morningCashier === 'الهياجنه' && morningAmount > 0)
+                      (morningCashier.includes('هياجنه') && morningAmount > 0)
                         ? "bg-amber-50 border-amber-500 text-amber-950 font-black ring-2 ring-amber-300"
                         : "bg-gray-50/80 border-gray-200 hover:bg-amber-50/50 text-gray-800"
                     )}
                   >
-                    <span className="text-xs font-black">☀️ الهياجنه</span>
+                    <span className="text-xs font-black">☀️ هياجنه</span>
                     <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">شفت صباحي</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => handleAssignSingle('الهياجنه', 'مسائي')}
+                    onClick={() => handleAssignSingle('هياجنه', 'مسائي')}
                     className={cn(
                       "p-2.5 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer",
-                      (eveningCashier === 'الهياجنه' && eveningAmount > 0)
+                      (eveningCashier.includes('هياجنه') && eveningAmount > 0)
                         ? "bg-indigo-50 border-indigo-500 text-indigo-950 font-black ring-2 ring-indigo-300"
                         : "bg-gray-50/80 border-gray-200 hover:bg-indigo-50/50 text-gray-800"
                     )}
                   >
-                    <span className="text-xs font-black">🌙 الهياجنه</span>
+                    <span className="text-xs font-black">🌙 هياجنه</span>
                     <span className="text-[10px] font-bold text-indigo-800 bg-indigo-100 px-2 py-0.5 rounded">شفت مسائي</span>
                   </button>
                 </div>
@@ -433,9 +433,9 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
                       className="w-full px-2 py-1 bg-amber-50/40 border border-amber-300 rounded text-xs font-bold text-gray-900 outline-none"
                     >
                       <option value="">-- اختر كاشير 1 --</option>
-                      <option value="البدور">البدور</option>
-                      <option value="الشحادات">الشحادات</option>
-                      <option value="الهياجنه">الهياجنه</option>
+                      <option value="قصي البدور">قصي البدور</option>
+                      <option value="أمجد شحادات">أمجد شحادات</option>
+                      <option value="هياجنه">هياجنه</option>
                     </select>
                     <div className="grid grid-cols-2 gap-1.5">
                       <select
@@ -471,9 +471,9 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
                       className="w-full px-2 py-1 bg-indigo-50/40 border border-indigo-300 rounded text-xs font-bold text-gray-900 outline-none"
                     >
                       <option value="">-- اختر كاشير 2 --</option>
-                      <option value="الشحادات">الشحادات</option>
-                      <option value="البدور">البدور</option>
-                      <option value="الهياجنه">الهياجنه</option>
+                      <option value="قصي البدور">قصي البدور</option>
+                      <option value="أمجد شحادات">أمجد شحادات</option>
+                      <option value="هياجنه">هياجنه</option>
                     </select>
                     <div className="grid grid-cols-2 gap-1.5">
                       <select

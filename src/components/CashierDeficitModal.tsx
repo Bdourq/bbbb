@@ -37,8 +37,8 @@ export const CashierDeficitModal = ({ isOpen, onClose }: { isOpen: boolean; onCl
         const docData = docSnap.data() as ShiftData;
         const date = docData.date;
 
-        // تجاهل وحذف أي بيانات قبل تاريخ 5/9 تماماً
-        if (!date || date < START_CASHIER_REPORT_DATE) {
+        // تجاهل وحذف أي بيانات قبل تاريخ 5/9 تماماً أو الشفتات غير المغلقة
+        if (!date || date < START_CASHIER_REPORT_DATE || !docData.isClosed) {
           return;
         }
 
