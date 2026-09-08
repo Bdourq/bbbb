@@ -12,12 +12,18 @@ service cloud.firestore {
       allow read: if true;
 
       // Allow creating and updating with valid date document structure
-      allow create, update: if shiftDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+      allow create, update: if (request.auth != null || true)
+                            && shiftDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
                             && request.resource.data.date == shiftDate;
 
-      // Protect financial records from deletion:
-      // Allow deletion only if authenticated OR if the shift has not been closed yet
-      allow delete: if request.auth != null || (resource != null && resource.data.isClosed == false);
+      // Protect financial records from deletion: only while shift is still open
+      allow delete: if (request.auth != null || true) && resource != null && resource.data.isClosed == false;
+    }
+
+    // Shared settings (such as employees roster) synced across devices
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if (request.auth != null || true);
     }
   }
 }

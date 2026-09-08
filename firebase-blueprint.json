@@ -20,12 +20,27 @@
         }
       },
       "required": ["date", "isClosed", "cashierName"]
+    },
+    "Setting": {
+      "title": "Setting",
+      "description": "Application settings and master configurations",
+      "type": "object",
+      "properties": {
+        "updatedAt": {
+          "type": "string",
+          "description": "Last update timestamp"
+        }
+      }
     }
   },
   "firestore": {
     "/shifts/{shiftDate}": {
       "schema": "Shift",
       "description": "Stores daily cashier shift reports"
+    },
+    "/settings/{settingId}": {
+      "schema": "Setting",
+      "description": "Stores master settings such as employee rosters"
     }
   }
 }

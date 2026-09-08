@@ -132,11 +132,13 @@ const MASTER_EMPLOYEES_KEY = 'albaik_master_employees_roster_v2';
 
 export const getLocalMasterEmployees = (): MasterEmployee[] => {
   try {
-    const raw = localStorage.getItem(MASTER_EMPLOYEES_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(MASTER_EMPLOYEES_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
       }
     }
   } catch (e) {
@@ -151,7 +153,9 @@ export const getLocalMasterEmployees = (): MasterEmployee[] => {
 
 export const saveMasterEmployees = (roster: MasterEmployee[]) => {
   try {
-    localStorage.setItem(MASTER_EMPLOYEES_KEY, JSON.stringify(roster));
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      localStorage.setItem(MASTER_EMPLOYEES_KEY, JSON.stringify(roster));
+    }
     safeSetDoc(doc(db, 'settings', 'employees'), {
       roster,
       updatedAt: new Date().toISOString()

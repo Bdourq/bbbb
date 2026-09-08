@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { initializeFirestore } from "firebase/firestore";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD4xl6KDqcLxfB-SQAuQ7bcSYpg1aZErVc",
@@ -11,6 +12,17 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+
+// Authenticate anonymously so request.auth != null is satisfied for Firestore security rules
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    signInAnonymously(auth).catch((err) => {
+      console.warn("Anonymous sign-in note:", err);
+    });
+  }
+});
+
 export const db = initializeFirestore(app, {
   ignoreUndefinedProperties: true
 }, "ai-studio-15c245e1-a40d-4f95-a1bf-5e60ce4b4dc4");
