@@ -68,14 +68,13 @@ export function calculateShiftMetrics(data: ShiftData): ShiftCalculationsResult 
     ? sumLineItems(data.addNewReceivables)
     : (Number(cashInfo.addedReceivables) || 0);
 
-  // Cash goes up when someone pays old debt (addedReceivablesTotal).
-  // Cash goes up for new receivables according to user request
+  // Cash goes up for new receivables, and goes DOWN when paying old debt (تسديد ذمم قديمة يخصم من الكاش)
   const totalCash =
     (Number(cashInfo.openingCash) || 0) +
     (Number(cashInfo.sales) || 0) +
     (Number(cashInfo.otherSales) || 0) +
-    addedReceivablesTotal +
-    newReceivablesTotal;
+    newReceivablesTotal -
+    addedReceivablesTotal;
 
   // 2. Sum of all expense lists (without manual overrides as requested)
   const purchasesTotal = sumLineItems(data?.purchases);
