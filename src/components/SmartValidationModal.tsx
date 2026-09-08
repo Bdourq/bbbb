@@ -58,9 +58,9 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
       const isSplit = (morningDiff.amount > 0 && eveningDiff.amount > 0) || morningDiff.notes === 'تقسيم' || eveningDiff.notes === 'تقسيم';
       setAssignMode(isSplit ? 'split' : 'single');
 
-      const defaultMorning = morningDiff.cashierName || shiftHandover?.morningCashier || 'قصي البدور';
-      const isQusayMorning = defaultMorning.includes('قصي');
-      const defaultEvening = eveningDiff.cashierName || cashierName?.replace(/\s*\(.*?\)/, '') || shiftHandover?.eveningCashier || (isQusayMorning ? 'أمجد شحادات' : 'قصي البدور');
+      const defaultMorning = morningDiff.cashierName || shiftHandover?.morningCashier || 'البدور';
+      const isBdourMorning = defaultMorning.includes('البدور');
+      const defaultEvening = eveningDiff.cashierName || cashierName?.replace(/\s*\(.*?\)/, '') || shiftHandover?.eveningCashier || (isBdourMorning ? 'الشحادات' : 'البدور');
 
       setMorningCashier(defaultMorning);
       setMorningType(morningDiff.type || totalDiffType);
@@ -76,8 +76,8 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
 
   // إسناد كامل المبلغ لكاشير وشفت محدد
   const handleAssignSingle = (name: string, shift: 'صباحي' | 'مسائي') => {
-    const isQusay = name.includes('قصي');
-    const otherName = isQusay ? 'أمجد شحادات' : 'قصي البدور';
+    const isBdour = name.includes('البدور');
+    const otherName = isBdour ? 'الشحادات' : 'البدور';
 
     setAssignMode('single');
     if (shift === 'صباحي') {
@@ -105,9 +105,9 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
     const half = Number((totalDiffAmount / 2).toFixed(2));
     const remainder = Number((totalDiffAmount - half).toFixed(2));
     
-    const mName = morningCashier || 'قصي البدور';
-    const isQusay = mName.includes('قصي');
-    const eName = eveningCashier || (isQusay ? 'أمجد شحادات' : 'قصي البدور');
+    const mName = morningCashier || 'البدور';
+    const isBdour = mName.includes('البدور');
+    const eName = eveningCashier || (isBdour ? 'الشحادات' : 'البدور');
 
     setMorningCashier(mName);
     setMorningType(totalDiffType);
@@ -257,9 +257,9 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  const currentC = morningAmount > 0 ? morningCashier : (eveningCashier || 'قصي البدور');
+                  const currentC = morningAmount > 0 ? morningCashier : (eveningCashier || 'البدور');
                   const currentS = morningAmount > 0 ? 'صباحي' : 'مسائي';
-                  handleAssignSingle(currentC || 'قصي البدور', currentS);
+                  handleAssignSingle(currentC || 'البدور', currentS);
                 }}
                 className={cn(
                   "flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center",
@@ -293,60 +293,88 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
                   اختر الكاشير والشفت الذي ظهر عنده {totalDiffType === 'shortage' ? 'النقص' : 'الزيادة'} ({totalDiffAmount.toFixed(2)} د.أ):
                 </span>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   <button
                     type="button"
-                    onClick={() => handleAssignSingle('قصي البدور', 'صباحي')}
+                    onClick={() => handleAssignSingle('البدور', 'صباحي')}
                     className={cn(
                       "p-2.5 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer",
-                      (morningCashier === 'قصي البدور' && morningAmount > 0)
+                      (morningCashier === 'البدور' && morningAmount > 0)
                         ? "bg-amber-50 border-amber-500 text-amber-950 font-black ring-2 ring-amber-300"
                         : "bg-gray-50/80 border-gray-200 hover:bg-amber-50/50 text-gray-800"
                     )}
                   >
-                    <span className="text-xs font-black">☀️ قصي البدور</span>
+                    <span className="text-xs font-black">☀️ البدور</span>
                     <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">شفت صباحي</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => handleAssignSingle('قصي البدور', 'مسائي')}
+                    onClick={() => handleAssignSingle('البدور', 'مسائي')}
                     className={cn(
                       "p-2.5 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer",
-                      (eveningCashier === 'قصي البدور' && eveningAmount > 0)
+                      (eveningCashier === 'البدور' && eveningAmount > 0)
                         ? "bg-indigo-50 border-indigo-500 text-indigo-950 font-black ring-2 ring-indigo-300"
                         : "bg-gray-50/80 border-gray-200 hover:bg-indigo-50/50 text-gray-800"
                     )}
                   >
-                    <span className="text-xs font-black">🌙 قصي البدور</span>
+                    <span className="text-xs font-black">🌙 البدور</span>
                     <span className="text-[10px] font-bold text-indigo-800 bg-indigo-100 px-2 py-0.5 rounded">شفت مسائي</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => handleAssignSingle('أمجد شحادات', 'صباحي')}
+                    onClick={() => handleAssignSingle('الشحادات', 'صباحي')}
                     className={cn(
                       "p-2.5 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer",
-                      (morningCashier === 'أمجد شحادات' && morningAmount > 0)
+                      (morningCashier === 'الشحادات' && morningAmount > 0)
                         ? "bg-amber-50 border-amber-500 text-amber-950 font-black ring-2 ring-amber-300"
                         : "bg-gray-50/80 border-gray-200 hover:bg-amber-50/50 text-gray-800"
                     )}
                   >
-                    <span className="text-xs font-black">☀️ أمجد شحادات</span>
+                    <span className="text-xs font-black">☀️ الشحادات</span>
                     <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">شفت صباحي</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => handleAssignSingle('أمجد شحادات', 'مسائي')}
+                    onClick={() => handleAssignSingle('الشحادات', 'مسائي')}
                     className={cn(
                       "p-2.5 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer",
-                      (eveningCashier === 'أمجد شحادات' && eveningAmount > 0)
+                      (eveningCashier === 'الشحادات' && eveningAmount > 0)
                         ? "bg-indigo-50 border-indigo-500 text-indigo-950 font-black ring-2 ring-indigo-300"
                         : "bg-gray-50/80 border-gray-200 hover:bg-indigo-50/50 text-gray-800"
                     )}
                   >
-                    <span className="text-xs font-black">🌙 أمجد شحادات</span>
+                    <span className="text-xs font-black">🌙 الشحادات</span>
+                    <span className="text-[10px] font-bold text-indigo-800 bg-indigo-100 px-2 py-0.5 rounded">شفت مسائي</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAssignSingle('الهياجنه', 'صباحي')}
+                    className={cn(
+                      "p-2.5 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer",
+                      (morningCashier === 'الهياجنه' && morningAmount > 0)
+                        ? "bg-amber-50 border-amber-500 text-amber-950 font-black ring-2 ring-amber-300"
+                        : "bg-gray-50/80 border-gray-200 hover:bg-amber-50/50 text-gray-800"
+                    )}
+                  >
+                    <span className="text-xs font-black">☀️ الهياجنه</span>
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">شفت صباحي</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAssignSingle('الهياجنه', 'مسائي')}
+                    className={cn(
+                      "p-2.5 rounded-xl border-2 text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer",
+                      (eveningCashier === 'الهياجنه' && eveningAmount > 0)
+                        ? "bg-indigo-50 border-indigo-500 text-indigo-950 font-black ring-2 ring-indigo-300"
+                        : "bg-gray-50/80 border-gray-200 hover:bg-indigo-50/50 text-gray-800"
+                    )}
+                  >
+                    <span className="text-xs font-black">🌙 الهياجنه</span>
                     <span className="text-[10px] font-bold text-indigo-800 bg-indigo-100 px-2 py-0.5 rounded">شفت مسائي</span>
                   </button>
                 </div>
@@ -405,8 +433,9 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
                       className="w-full px-2 py-1 bg-amber-50/40 border border-amber-300 rounded text-xs font-bold text-gray-900 outline-none"
                     >
                       <option value="">-- اختر كاشير 1 --</option>
-                      <option value="قصي البدور">قصي البدور</option>
-                      <option value="أمجد شحادات">أمجد شحادات</option>
+                      <option value="البدور">البدور</option>
+                      <option value="الشحادات">الشحادات</option>
+                      <option value="الهياجنه">الهياجنه</option>
                     </select>
                     <div className="grid grid-cols-2 gap-1.5">
                       <select
@@ -442,8 +471,9 @@ export const SmartValidationModal: React.FC<SmartValidationModalProps> = ({
                       className="w-full px-2 py-1 bg-indigo-50/40 border border-indigo-300 rounded text-xs font-bold text-gray-900 outline-none"
                     >
                       <option value="">-- اختر كاشير 2 --</option>
-                      <option value="أمجد شحادات">أمجد شحادات</option>
-                      <option value="قصي البدور">قصي البدور</option>
+                      <option value="الشحادات">الشحادات</option>
+                      <option value="البدور">البدور</option>
+                      <option value="الهياجنه">الهياجنه</option>
                     </select>
                     <div className="grid grid-cols-2 gap-1.5">
                       <select

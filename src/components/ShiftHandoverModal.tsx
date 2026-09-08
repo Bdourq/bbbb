@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, ArrowRightLeft, CheckCircle2, Calculator, Clock, TrendingDown, TrendingUp } from 'lucide-react';
 import { useShiftStore } from '../store/useShiftStore';
-import { calculateWage } from './sections2';
+import { calculateShiftMetrics } from '../lib/shiftCalculations';
 import toast from 'react-hot-toast';
 
 export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
@@ -33,37 +33,19 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
 
   if (!isOpen) return null;
 
+  // Use the centralized calculation logic to ensure all expenses (including manual overrides) are captured
+  const metrics = calculateShiftMetrics(data);
+  const totalExpenses = metrics.totalExpenses;
+  const employeeAdvancesAndWages = metrics.effectiveAdvances;
+
   // Automatically pulled from main shift state / tables
   const openingCash = data.cashAndSales.openingCash || 0;
   const addedReceivables = data.addCashReceivables ? data.addCashReceivables.reduce((sum, item) => sum + (item.amount || 0), 0) : (data.cashAndSales.paidOldReceivables || 0);
   const newReceivables = data.addNewReceivables ? data.addNewReceivables.reduce((sum, item) => sum + (item.amount || 0), 0) : (data.cashAndSales.addedReceivables || 0);
   const otherSales = data.cashAndSales.otherSales || 0;
 
-  // Sum of general expense lists from main tables
-  const generalExpenses = [
-    ...(data.purchases || []),
-    ...(data.otherExpenses || []),
-    ...(data.abuAbdullah || []),
-    ...(data.equipment || []),
-    ...(data.apartment || []),
-    ...(data.adminExpenses || []),
-    ...(data.ewallet || []),
-    ...(data.payMerchantReceivables || []),
-    ...(data.yahya || []),
-    ...(data.spices || [])
-  ].reduce((sum, item) => sum + (item.amount || 0), 0);
-
-  // Sum of employee advances + daily wages (سلف وأجور مياومات الموظفين)
-  const employeeAdvancesAndWages = ((data.employeeAdvances || []).reduce((acc, emp) => {
-    const dailyWage = calculateWage(emp.startTime, emp.endTime, emp.hourlyRate);
-    return acc + dailyWage + (Number(emp.amount) || 0);
-  }, 0)) + (Number(data.actualInventory?.manualAdvances) || 0);
-
-  // Total deductions = general expenses + employee advances and wages
-  const totalExpenses = generalExpenses + employeeAdvancesAndWages;
-
-  // Expected cash = Opening + New Receivables - Added Receivables + Sales + Other Sales - Total Expenses (including advances/wages) - Visa - RT - Maestro
-  const expectedCash = openingCash + newReceivables - addedReceivables + sales + otherSales - totalExpenses - visa - rt - maestro;
+  // Expected cash = Opening - New Receivables + Added Receivables + (LOCAL sales) + otherSales - Total Expenses (including advances/wages) - (LOCAL visa) - (LOCAL rt) - (LOCAL maestro) - (ewallet)
+  const expectedCash = openingCash - newReceivables + addedReceivables + sales + otherSales - totalExpenses - visa - rt - maestro - metrics.ewalletTotal;
   const handoverDifference = actualCash - expectedCash; // Positive = surplus, Negative = shortage
 
   const handleApplyHandover = () => {
@@ -130,8 +112,9 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
                 className="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-bold bg-white"
               >
                 <option value="">-- اختر الكاشير --</option>
-                <option value="قصي البدور">قصي البدور</option>
-                <option value="أمجد شحادات">أمجد شحادات</option>
+                <option value="البدور">البدور</option>
+                <option value="الشحادات">الشحادات</option>
+                <option value="الهياجنه">الهياجنه</option>
               </select>
             </div>
             <div>
@@ -142,8 +125,9 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
                 className="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-bold bg-white"
               >
                 <option value="">-- اختر الكاشير --</option>
-                <option value="قصي البدور">قصي البدور</option>
-                <option value="أمجد شحادات">أمجد شحادات</option>
+                <option value="البدور">البدور</option>
+                <option value="الشحادات">الشحادات</option>
+                <option value="الهياجنه">الهياجنه</option>
               </select>
             </div>
           </div>

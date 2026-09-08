@@ -46,32 +46,33 @@ export function calculateShiftMetrics(data: ShiftData): ShiftCalculationsResult 
     ? sumLineItems(data.addNewReceivables)
     : (Number(cashInfo.addedReceivables) || 0);
 
+  // Cash goes up when someone pays old debt (addedReceivablesTotal).
+  // Cash goes up for new receivables according to user request
   const totalCash =
     (Number(cashInfo.openingCash) || 0) +
     (Number(cashInfo.sales) || 0) +
     (Number(cashInfo.otherSales) || 0) +
-    newReceivablesTotal -
-    addedReceivablesTotal;
+    addedReceivablesTotal +
+    newReceivablesTotal;
 
-  // 2. Sum of all expense lists + manual overrides
-  // ملاحظة هامة: addMerchantReceivables للعرض فقط ولا تدخل في حساب المصاريف
-  const purchasesTotal = sumLineItems(data?.purchases) + (Number(data?.actualInventory?.manualPurchases) || 0);
+  // 2. Sum of all expense lists (without manual overrides as requested)
+  const purchasesTotal = sumLineItems(data?.purchases);
   const addMerchantTotal = sumLineItems(data?.addMerchantReceivables);
-  const payMerchantTotal = sumLineItems(data?.payMerchantReceivables) + (Number(data?.actualInventory?.manualPayMerchant) || 0);
-  const otherExpensesTotal = sumLineItems(data?.otherExpenses) + (Number(data?.actualInventory?.manualOtherExpenses) || 0);
-  const apartmentTotal = sumLineItems(data?.apartment) + (Number(data?.actualInventory?.manualApartment) || 0);
-  const adminExpensesTotal = sumLineItems(data?.adminExpenses) + (Number(data?.actualInventory?.manualAdminExpenses) || 0);
-  const yahyaTotal = sumLineItems(data?.yahya) + (Number(data?.actualInventory?.manualYahya) || 0);
-  const abuAbdullahTotal = sumLineItems(data?.abuAbdullah) + (Number(data?.actualInventory?.manualAbuAbdullah) || 0);
-  const spicesTotal = sumLineItems(data?.spices) + (Number(data?.actualInventory?.manualSpices) || 0);
-  const equipmentTotal = sumLineItems(data?.equipment) + (Number(data?.actualInventory?.manualEquipment) || 0);
+  const payMerchantTotal = sumLineItems(data?.payMerchantReceivables);
+  const otherExpensesTotal = sumLineItems(data?.otherExpenses);
+  const apartmentTotal = sumLineItems(data?.apartment);
+  const adminExpensesTotal = sumLineItems(data?.adminExpenses);
+  const yahyaTotal = sumLineItems(data?.yahya);
+  const abuAbdullahTotal = sumLineItems(data?.abuAbdullah);
+  const spicesTotal = sumLineItems(data?.spices);
+  const equipmentTotal = sumLineItems(data?.equipment);
   const ewalletTotal = sumLineItems(data?.ewallet);
 
   // 3. Advances total (مجموع السلف والمياومات من جدول الموظفين)
   const advancesTotal = ((data?.employeeAdvances || []).reduce((acc, emp) => {
     const dailyWage = calculateWage(emp.startTime, emp.endTime, emp.hourlyRate);
     return acc + dailyWage + (Number(emp.amount) || 0);
-  }, 0)) + (Number(data?.actualInventory?.manualAdvances) || 0);
+  }, 0));
 
   // 4. مجموع المصاريف بدون السلف
   const expensesWithoutAdvances =

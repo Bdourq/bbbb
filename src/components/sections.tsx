@@ -399,8 +399,8 @@ export const ActualInventorySection = React.memo(() => {
   // الإسناد لكاشير واحد بكامل المبلغ مع تحديد الشفت
   const handleAssignSingle = (selectedName: string, shiftLabel: 'صباحي' | 'مسائي' | 'كامل اليوم' = 'مسائي') => {
     if (!selectedName) return;
-    const isQusay = selectedName.includes('قصي');
-    const otherName = isQusay ? 'أمجد شحادات' : 'قصي البدور';
+    const isBdour = selectedName.includes('البدور');
+    const otherName = isBdour ? 'الشحادات' : 'البدور';
 
     if (shiftLabel === 'صباحي') {
       updateData(['shiftDifferences', 'morning'], {
@@ -451,8 +451,8 @@ export const ActualInventorySection = React.memo(() => {
   const handleSplitFiftyFifty = () => {
     const half = Number((totalDiffAmount / 2).toFixed(2));
     const remainder = Number((totalDiffAmount - half).toFixed(2));
-    const c1 = morningDiff.cashierName || 'قصي البدور';
-    const c2 = eveningDiff.cashierName || cashierName?.replace(/\s*\(.*?\)/, '') || 'أمجد شحادات';
+    const c1 = morningDiff.cashierName || 'البدور';
+    const c2 = eveningDiff.cashierName || cashierName?.replace(/\s*\(.*?\)/, '') || 'الشحادات';
 
     updateData(['shiftDifferences', 'morning'], {
       cashierName: c1,
@@ -471,8 +471,8 @@ export const ActualInventorySection = React.memo(() => {
 
   // تبديل الكاشيرية بين الشفت الصباحي والمسائي بضغطة واحدة
   const handleSwapCashiers = () => {
-    const c1 = morningDiff.cashierName || 'قصي البدور';
-    const c2 = eveningDiff.cashierName || 'أمجد شحادات';
+    const c1 = morningDiff.cashierName || 'البدور';
+    const c2 = eveningDiff.cashierName || 'الشحادات';
     updateData(['shiftDifferences', 'morning', 'cashierName'], c2);
     updateData(['shiftDifferences', 'evening', 'cashierName'], c1);
   };
@@ -481,7 +481,7 @@ export const ActualInventorySection = React.memo(() => {
   const handleAssignRemainderToEvening = () => {
     const mAmount = morningDiff.amount || 0;
     const remainder = Math.max(0, Number((totalDiffAmount - mAmount).toFixed(2)));
-    const c2 = eveningDiff.cashierName || 'أمجد شحادات';
+    const c2 = eveningDiff.cashierName || 'الشحادات';
 
     updateData(['shiftDifferences', 'evening'], {
       cashierName: c2,
@@ -495,7 +495,7 @@ export const ActualInventorySection = React.memo(() => {
   const handleAssignRemainderToMorning = () => {
     const eAmount = eveningDiff.amount || 0;
     const remainder = Math.max(0, Number((totalDiffAmount - eAmount).toFixed(2)));
-    const c1 = morningDiff.cashierName || 'قصي البدور';
+    const c1 = morningDiff.cashierName || 'البدور';
 
     updateData(['shiftDifferences', 'morning'], {
       cashierName: c1,
@@ -523,7 +523,7 @@ export const ActualInventorySection = React.memo(() => {
     const morningAmt = Number(Math.abs(diff).toFixed(2));
     
     updateData(['shiftDifferences', 'morning'], {
-      cashierName: shiftHandover.morningCashier || 'قصي البدور',
+      cashierName: shiftHandover.morningCashier || 'البدور',
       type,
       amount: morningAmt,
       notes: 'صباحي'
@@ -657,71 +657,27 @@ export const ActualInventorySection = React.memo(() => {
               </td>
             </tr>
             {displayFields.map((field, idx) => {
-              // Calculate table sum: totalValue - manualValue
-              const manualValue = Number(data[field.manualKey as keyof typeof data]) || 0;
-              const tableSum = field.value - manualValue;
-              const hasMismatch = manualValue !== 0;
+              const tableSum = field.value;
 
               return (
                 <tr 
                   key={idx}
-                  className={cn(
-                    "border-b border-gray-300 hover:bg-indigo-50/80 transition-colors group relative",
-                    hasMismatch && "bg-rose-50 hover:bg-rose-100"
-                  )}
+                  className="border-b border-gray-300 hover:bg-indigo-50/80 transition-colors group relative"
                 >
                   <td 
                     onClick={() => scrollToTable(field.targetId)}
-                    className={cn(
-                      "px-3 py-2 bg-gray-50 group-hover:bg-indigo-100/60 border border-gray-300 font-extrabold text-gray-800 text-center cursor-pointer text-sm sm:text-base",
-                      hasMismatch && "bg-rose-50 group-hover:bg-rose-100 text-rose-700"
-                    )}
+                    className="px-3 py-2 bg-gray-50 group-hover:bg-indigo-100/60 border border-gray-300 font-extrabold text-gray-800 text-center cursor-pointer text-sm sm:text-base"
                     title={`انقر للانتقال لمعاينة بيانات جدول ${field.label}`}
                   >
                     <div className="flex flex-col items-center justify-center gap-1">
                       <div className="flex items-center gap-1">
                         <span>{field.label}</span>
-                        <ExternalLink size={12} className={cn("opacity-40 group-hover:opacity-100 print:hidden shrink-0", hasMismatch ? "text-rose-500" : "text-indigo-500")} />
+                        <ExternalLink size={12} className="opacity-40 group-hover:opacity-100 print:hidden shrink-0 text-indigo-500" />
                       </div>
-                      {hasMismatch && (
-                        <span className="text-[10px] text-rose-600 font-black print:hidden">
-                          (يوجد فرق)
-                        </span>
-                      )}
                     </div>
                   </td>
-                  <td className="p-0 border border-gray-300 relative group">
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      pattern="[0-9]*"
-                      value={field.value || ''}
-                      onFocus={(e) => e.target.select()}
-                      onWheel={(e) => e.currentTarget.blur()}
-                      onChange={(e) => {
-                        const newTotal = Number(e.target.value);
-                        const newManual = newTotal - tableSum;
-                        handleInputChange(field.manualKey, newManual);
-                      }}
-                      className={cn(
-                        "w-full h-full px-3 py-2 bg-transparent outline-none text-center font-black transition-all duration-150 text-sm sm:text-base md:text-lg",
-                        hasMismatch ? "text-rose-700 focus:bg-rose-100" : "text-indigo-900 focus:bg-amber-50/80",
-                      )}
-                      dir="ltr"
-                      placeholder="0"
-                    />
-                    {hasMismatch ? (
-                      <div className="absolute left-1 top-1/2 -translate-y-1/2 flex flex-col items-start pointer-events-none print:hidden">
-                        <span className="text-[9px] text-rose-500 font-bold leading-tight">الجدول: {tableSum}</span>
-                        <span className="text-[9px] text-rose-600 font-black leading-tight">الفرق: {manualValue > 0 ? `+${manualValue}` : manualValue}</span>
-                      </div>
-                    ) : (
-                      tableSum > 0 && (
-                        <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[9px] text-indigo-400 font-bold pointer-events-none print:hidden opacity-0 group-hover:opacity-100 transition-opacity">
-                          جدول: {tableSum}
-                        </span>
-                      )
-                    )}
+                  <td className="px-3 py-2 border border-gray-300 text-center font-black text-indigo-900 bg-indigo-50/30 text-sm sm:text-base md:text-lg" dir="ltr">
+                    {tableSum > 0 ? tableSum.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : '0'}
                   </td>
                 </tr>
               );

@@ -116,8 +116,8 @@ export type ShiftData = {
 };
 
 const defaultEmployees = [
-  "ابو حبيش", "معتصم", "ابو لطفي", "مجاهد", "سامر", "ابو الوفا", "سعيد", "هياجنة", "بدور", "قتيبة",
-  "امجد شحادات", "عبيدة", "سيف", "خالد ابو عرة", "قصي", "خالد", "عز الدين", "الحمصي", "قاسم", "حسن",
+  "ابو حبيش", "معتصم", "ابو لطفي", "مجاهد", "سامر", "ابو الوفا", "سعيد", "الهياجنه", "البدور", "قتيبة",
+  "الشحادات", "عبيدة", "سيف", "خالد ابو عرة", "خالد", "عز الدين", "الحمصي", "قاسم", "حسن",
   "محمود الاشقر صالة", "زعبي / بسطه", "صالح", "علي نوفل", "عبد الله الحريري",
   "ابو مصعب (مياومة)", "عبد الله نوفل (مياومة)", "محمود نابلسي (مياومة)", "مهيب (مياومة)", "محمد طه (مياومة)", "زعبي / صاله (مياومة)"
 ];
@@ -612,6 +612,30 @@ export const useShiftStore = create<StoreState>((set, get) => ({
   closeShift: () => {
     set((state) => {
       const newData = { ...state.data, isClosed: true };
+      
+      // Transfer valid custody items (type: 'out' - given out of cash) to addNewReceivables
+      if (newData.custodyItems && newData.custodyItems.length > 0) {
+        const custodyToReceivables = newData.custodyItems
+          .filter((item: any) => item.type === 'out' && (item.personOrReason?.trim() !== '' || Number(item.amount) > 0))
+          .map((item: any) => ({
+            id: generateId(),
+            label: `عهدة: ${item.personOrReason || 'بدون اسم'}`,
+            amount: item.amount
+          }));
+          
+        if (custodyToReceivables.length > 0) {
+          const existingReceivables = (newData.addNewReceivables || []).filter(
+            (item: any) => item.label?.trim() !== '' || Number(item.amount) > 0
+          );
+          newData.addNewReceivables = [...existingReceivables, ...custodyToReceivables];
+          
+          // Ensure at least one empty line remains for UI consistency if needed
+          if (newData.addNewReceivables.length === 0) {
+            newData.addNewReceivables = [{ id: generateId(), label: '', amount: 0 }];
+          }
+        }
+      }
+
       syncToFirestore(newData);
       return { data: newData };
     });
