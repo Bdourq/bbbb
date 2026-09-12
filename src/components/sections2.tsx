@@ -3,6 +3,7 @@ import { useShiftStore } from '../store/useShiftStore';
 import { Card, CardHeader, CardContent } from './ui';
 import { Plus, Trash2, RotateCcw, XCircle } from 'lucide-react';
 import { cn, toEnglishNumbers } from '../lib/utils';
+import { DebouncedInput } from './DebouncedInput';
 
 export const KitchenConsumptionSection = React.memo(() => {
   const data = useShiftStore(state => state.data.kitchenConsumption);
@@ -186,13 +187,13 @@ const EmployeeRow = React.memo(({
       }`}>{index + 1}</td>
       <td className="p-0 border border-gray-300">
         <div className="flex items-center justify-between px-3 py-2">
-          <input
+          <DebouncedInput
             type="text"
             value={emp.employeeName}
-            onFocus={(e) => e.target.select()}
-            onChange={(e) => {
-              onUpdate(index, 'employeeName', e.target.value);
-              if (index === totalLength - 1 && e.target.value) {
+            onFocus={(e: any) => e.target.select()}
+            onChange={(val: string) => {
+              onUpdate(index, 'employeeName', val);
+              if (index === totalLength - 1 && val) {
                 onAddEmployee();
               }
             }}
@@ -288,13 +289,13 @@ const EmployeeRow = React.memo(({
         </div>
       </td>
       <td className="p-0 border border-gray-300">
-        <input
+        <DebouncedInput
           type="number"
           inputMode="decimal"
           pattern="[0-9]*"
           value={emp.hourlyRate || ''}
-          onFocus={(e) => e.target.select()}
-          onChange={(e) => onUpdate(index, 'hourlyRate', Number(e.target.value))}
+          onFocus={(e: any) => e.target.select()}
+          onChange={(val: any) => onUpdate(index, 'hourlyRate', Number(val))}
           className={`w-full h-full px-2 py-2 bg-transparent outline-none text-center text-sm sm:text-base font-black focus:bg-amber-50/80 focus:text-indigo-900 transition-all duration-150 ${
             isOff ? 'text-rose-400' : 'text-slate-900'
           }`}
@@ -314,13 +315,13 @@ const EmployeeRow = React.memo(({
         </div>
       </td>
       <td className="p-0 border border-gray-300">
-        <input
+        <DebouncedInput
           type="number"
           inputMode="decimal"
           pattern="[0-9]*"
           value={emp.amount || ''}
-          onFocus={(e) => e.target.select()}
-          onChange={(e) => onUpdate(index, 'amount', Number(e.target.value))}
+          onFocus={(e: any) => e.target.select()}
+          onChange={(val: any) => onUpdate(index, 'amount', Number(val))}
           className="w-full h-full px-2 py-2 bg-transparent outline-none text-center font-black text-rose-700 text-sm sm:text-base md:text-lg focus:bg-amber-50/80 transition-all duration-150"
           dir="ltr"
           placeholder="0"
@@ -328,11 +329,11 @@ const EmployeeRow = React.memo(({
         />
       </td>
       <td className="p-0 border border-gray-300">
-        <input
+        <DebouncedInput
           type="text"
           value={emp.notes}
-          onFocus={(e) => e.target.select()}
-          onChange={(e) => onUpdate(index, 'notes', e.target.value)}
+          onFocus={(e: any) => e.target.select()}
+          onChange={(val: string) => onUpdate(index, 'notes', val)}
           className={`w-full h-full px-3 py-2 bg-transparent outline-none text-center text-sm sm:text-base font-bold focus:bg-amber-50 ${
             isOff ? 'text-rose-900' : 'text-slate-900'
           }`}

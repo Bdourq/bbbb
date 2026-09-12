@@ -5,6 +5,7 @@ import { useValidationStore } from '../store/useValidationStore';
 import { Card, CardHeader, CardContent } from './ui';
 import { Plus, Trash2, AlertCircle, ExternalLink } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { DebouncedInput } from './DebouncedInput';
 
 export const CashDataSection = React.memo(() => {
   const cashAndSales = useShiftStore(state => state.data.cashAndSales);
@@ -156,11 +157,11 @@ export const CashDataSection = React.memo(() => {
                         )}
                         <span className="font-extrabold text-gray-800 whitespace-nowrap text-xs sm:text-sm">إضافة ذمم جديدة</span>
                       </div>
-                      <input 
+                      <DebouncedInput 
                         type="text" 
                         value={item.label || ''} 
-                        onFocus={(e) => e.target.select()}
-                        onKeyDown={(e) => {
+                        onFocus={(e: any) => e.target.select()}
+                        onKeyDown={(e: any) => {
                           if (e.key === 'Enter') {
                             e.preventDefault();
                             const row = (e.target as HTMLElement).closest('tr');
@@ -168,9 +169,9 @@ export const CashDataSection = React.memo(() => {
                             amountInput?.focus();
                           }
                         }}
-                        onChange={(e) => {
-                          handleNewReceivableUpdate(index, 'label', e.target.value);
-                          if (index === arr.length - 1 && e.target.value) {
+                        onChange={(val: string) => {
+                          handleNewReceivableUpdate(index, 'label', val);
+                          if (index === arr.length - 1 && val) {
                             handleAddNewItem();
                           }
                         }} 
@@ -180,14 +181,14 @@ export const CashDataSection = React.memo(() => {
                     </div>
                   </td>
                   <td className="p-0 border border-gray-300">
-                    <input
+                    <DebouncedInput
                       type="number"
                       inputMode="decimal"
                       pattern="[0-9]*"
                       value={item.amount || ''}
-                      onFocus={(e) => e.target.select()}
-                      onWheel={(e) => e.currentTarget.blur()}
-                      onKeyDown={(e) => {
+                      onFocus={(e: any) => e.target.select()}
+                      onWheel={(e: any) => e.currentTarget.blur()}
+                      onKeyDown={(e: any) => {
                         if (e.key === 'Enter' || e.key === 'Tab') {
                           e.preventDefault();
                           if (index === arr.length - 1) {
@@ -207,9 +208,10 @@ export const CashDataSection = React.memo(() => {
                           }
                         }
                       }}
-                      onChange={(e) => {
-                        handleNewReceivableUpdate(index, 'amount', Number(e.target.value));
-                        if (index === arr.length - 1 && Number(e.target.value) > 0) {
+                      onChange={(val: any) => {
+                        const numVal = Number(val);
+                        handleNewReceivableUpdate(index, 'amount', numVal);
+                        if (index === arr.length - 1 && numVal > 0) {
                           handleAddNewItem();
                         }
                       }}
@@ -249,11 +251,11 @@ export const CashDataSection = React.memo(() => {
                         )}
                         <span className="font-extrabold text-gray-800 whitespace-nowrap text-xs sm:text-sm">تسديد ذمم قديمة</span>
                       </div>
-                      <input 
+                      <DebouncedInput 
                         type="text" 
                         value={item.label || ''} 
-                        onFocus={(e) => e.target.select()}
-                        onKeyDown={(e) => {
+                        onFocus={(e: any) => e.target.select()}
+                        onKeyDown={(e: any) => {
                           if (e.key === 'Enter') {
                             e.preventDefault();
                             const row = (e.target as HTMLElement).closest('tr');
@@ -261,9 +263,9 @@ export const CashDataSection = React.memo(() => {
                             amountInput?.focus();
                           }
                         }}
-                        onChange={(e) => {
-                          handleCashReceivableUpdate(index, 'label', e.target.value);
-                          if (index === arr.length - 1 && e.target.value) {
+                        onChange={(val: string) => {
+                          handleCashReceivableUpdate(index, 'label', val);
+                          if (index === arr.length - 1 && val) {
                             handleAddCashItem();
                           }
                         }} 
@@ -273,14 +275,14 @@ export const CashDataSection = React.memo(() => {
                     </div>
                   </td>
                   <td className="p-0 border border-gray-300">
-                    <input
+                    <DebouncedInput
                       type="number"
                       inputMode="decimal"
                       pattern="[0-9]*"
                       value={item.amount || ''}
-                      onFocus={(e) => e.target.select()}
-                      onWheel={(e) => e.currentTarget.blur()}
-                      onKeyDown={(e) => {
+                      onFocus={(e: any) => e.target.select()}
+                      onWheel={(e: any) => e.currentTarget.blur()}
+                      onKeyDown={(e: any) => {
                         if (e.key === 'Enter' || e.key === 'Tab') {
                           e.preventDefault();
                           if (index === arr.length - 1) {
@@ -300,9 +302,10 @@ export const CashDataSection = React.memo(() => {
                           }
                         }
                       }}
-                      onChange={(e) => {
-                        handleCashReceivableUpdate(index, 'amount', Number(e.target.value));
-                        if (index === arr.length - 1 && Number(e.target.value) > 0) {
+                      onChange={(val: any) => {
+                        const numVal = Number(val);
+                        handleCashReceivableUpdate(index, 'amount', numVal);
+                        if (index === arr.length - 1 && numVal > 0) {
                           handleAddCashItem();
                         }
                       }}
@@ -316,14 +319,14 @@ export const CashDataSection = React.memo(() => {
             <tr className="border-b border-gray-300">
               <td className="px-3 py-2 bg-gray-50 border border-gray-300 font-bold text-gray-800 w-1/2 text-center text-sm sm:text-base">مبيعات</td>
               <td className="p-0 border border-gray-300">
-                <input
+                <DebouncedInput
                   type="number"
                   inputMode="decimal"
                   pattern="[0-9]*"
                   value={cashAndSales.sales || ''}
-                  onFocus={(e) => e.target.select()}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  onChange={(e) => handleInputChange(['cashAndSales', 'sales'], Number(e.target.value))}
+                  onFocus={(e: any) => e.target.select()}
+                  onWheel={(e: any) => e.currentTarget.blur()}
+                  onChange={(val: any) => handleInputChange(['cashAndSales', 'sales'], Number(val))}
                   className="w-full h-full px-3 py-2 bg-transparent outline-none text-center font-black text-slate-950 text-sm sm:text-base md:text-lg focus:bg-amber-50/80 focus:text-blue-900 transition-all duration-150"
                   dir="ltr" placeholder="0"
                 />
@@ -332,14 +335,14 @@ export const CashDataSection = React.memo(() => {
             <tr className="border-b border-gray-300">
               <td className="px-3 py-2 bg-gray-50 border border-gray-300 font-bold text-gray-800 w-1/2 text-center text-sm sm:text-base">مبيعات أخرى</td>
               <td className="p-0 border border-gray-300">
-                <input
+                <DebouncedInput
                   type="number"
                   inputMode="decimal"
                   pattern="[0-9]*"
                   value={cashAndSales.otherSales || ''}
-                  onFocus={(e) => e.target.select()}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  onChange={(e) => handleInputChange(['cashAndSales', 'otherSales'], Number(e.target.value))}
+                  onFocus={(e: any) => e.target.select()}
+                  onWheel={(e: any) => e.currentTarget.blur()}
+                  onChange={(val: any) => handleInputChange(['cashAndSales', 'otherSales'], Number(val))}
                   className="w-full h-full px-3 py-2 bg-transparent outline-none text-center font-black text-slate-950 text-sm sm:text-base md:text-lg focus:bg-amber-50/80 focus:text-indigo-900 transition-all duration-150"
                   dir="ltr" placeholder="0"
                 />
@@ -619,15 +622,14 @@ export const ActualInventorySection = React.memo(() => {
                   </div>
                 </td>
                 <td className="p-0 border border-gray-300">
-                  <input
+                  <DebouncedInput
                     type="number"
                     inputMode="decimal"
                     pattern="[0-9]*"
                     value={data[field.key as keyof typeof data] !== undefined && data[field.key as keyof typeof data] !== null ? data[field.key as keyof typeof data] : ''}
-                    onFocus={(e) => e.target.select()}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    onChange={(e) => {
-                      const rawVal = e.target.value;
+                    onFocus={(e: any) => e.target.select()}
+                    onWheel={(e: any) => e.currentTarget.blur()}
+                    onChange={(rawVal: string) => {
                       if (rawVal === '') {
                         handleInputChange(field.key, field.key === 'advances' ? null : 0);
                       } else {

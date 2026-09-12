@@ -3,6 +3,7 @@ import { cn } from '../lib/utils';
 import { Plus, Trash2, AlertCircle, ChevronDown } from 'lucide-react';
 import { useShiftStore, ShiftData, LineItem } from '../store/useShiftStore';
 import { useValidationStore } from '../store/useValidationStore';
+import { DebouncedInput } from './DebouncedInput';
 
 interface CardContextType {
   isOpen: boolean;
@@ -229,20 +230,19 @@ export const DynamicList = ({
               </tr>
             ) : (
               items.map((item, index) => {
-                const isItemMissingLabel = !hideLabel && Number(item.amount) > 0 && !item.label.trim();
                 const isItemEmpty = hideLabel 
                   ? (!item.amount || Number(item.amount) === 0) 
                   : ((!item.label || !item.label.trim()) && (!item.amount || Number(item.amount) === 0));
                 return (
-                  <tr key={item.id} className={cn("border-b border-gray-300 hover:bg-gray-50", isItemMissingLabel && "bg-rose-50/60", isItemEmpty && "print:hidden export-empty-row")}>
+                  <tr key={item.id} className={cn("border-b border-gray-300 hover:bg-gray-50", isItemEmpty && "print:hidden export-empty-row")}>
                     {!hideLabel ? (
                       <td className="p-0 border border-gray-300 relative">
-                        <input 
+                        <DebouncedInput 
                           type="text"
                           list={suggestions ? listId : undefined}
                           value={item.label}
-                          onFocus={(e) => e.target.select()}
-                          onKeyDown={(e) => {
+                          onFocus={(e: any) => e.target.select()}
+                          onKeyDown={(e: any) => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
                               const row = (e.target as HTMLElement).closest('tr');
@@ -250,20 +250,19 @@ export const DynamicList = ({
                               amountInput?.focus();
                             }
                           }}
-                          onChange={(e) => {
-                            updateData([listKey, index, 'label'], e.target.value);
-                            if (e.target.value.trim() && errorMessage) {
+                          onChange={(val: string) => {
+                            updateData([listKey, index, 'label'], val);
+                            if (val.trim() && errorMessage) {
                               clearError(listKey as string);
                             }
-                            if (index === items.length - 1 && e.target.value) {
+                            if (index === items.length - 1 && val) {
                               addLineItem(listKey);
                             }
                           }}
                           className={cn(
-                            "w-full h-full px-2 py-1.5 bg-transparent outline-none text-center font-bold text-gray-900 focus:bg-amber-50/80 focus:font-black focus:text-base transition-all duration-150",
-                            isItemMissingLabel && "border-2 border-rose-400 bg-rose-100/50 placeholder:text-rose-500 font-bold"
+                            "w-full h-full px-2 py-1.5 bg-transparent outline-none text-center font-bold text-gray-900 focus:bg-amber-50/80 focus:font-black focus:text-base transition-all duration-150"
                           )}
-                          placeholder={isItemMissingLabel ? "⚠️ البيان مطلوب!" : "البيان"}
+                          placeholder="البيان"
                           dir="rtl"
                         />
                       </td>
@@ -273,15 +272,15 @@ export const DynamicList = ({
                       </td>
                     )}
                     <td className="p-0 border border-gray-300">
-                      <input 
+                      <DebouncedInput 
                         type="number"
                         inputMode="decimal"
                         pattern="[0-9]*"
                         step="any"
                         value={item.amount || ''}
-                        onFocus={(e) => e.target.select()}
-                        onWheel={(e) => e.currentTarget.blur()}
-                        onKeyDown={(e) => {
+                        onFocus={(e: any) => e.target.select()}
+                        onWheel={(e: any) => e.currentTarget.blur()}
+                        onKeyDown={(e: any) => {
                           if (e.key === 'Enter' || e.key === 'Tab') {
                             e.preventDefault();
                             if (index === items.length - 1) {
@@ -301,9 +300,10 @@ export const DynamicList = ({
                             }
                           }
                         }}
-                        onChange={(e) => {
-                          updateData([listKey, index, 'amount'], Number(e.target.value));
-                          if (index === items.length - 1 && Number(e.target.value) > 0) {
+                        onChange={(val: any) => {
+                          const numVal = Number(val);
+                          updateData([listKey, index, 'amount'], numVal);
+                          if (index === items.length - 1 && numVal > 0) {
                             addLineItem(listKey);
                           }
                         }}
