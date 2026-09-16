@@ -12,47 +12,44 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
   const [eveningCashier, setEveningCashier] = useState('');
   
   // Required fields for Shift Handover
+  const [openingCash, setOpeningCash] = useState(data.cashAndSales.openingCash || 0);
   const [sales, setSales] = useState(data.cashAndSales.sales || 0);
+  const [expenses, setExpenses] = useState(0);
   const [rt, setRt] = useState(data.actualInventory.rt || 0);
   const [visa, setVisa] = useState(data.actualInventory.visa || 0);
   const [maestro, setMaestro] = useState(data.actualInventory.maestro || 0);
+  const [wallet, setWallet] = useState(data.actualInventory.wallet || 0);
   const [actualCash, setActualCash] = useState(data.actualInventory.actualCash || 0);
 
   React.useEffect(() => {
     if (isOpen) {
+      setOpeningCash(data.cashAndSales.openingCash || 0);
       setSales(data.cashAndSales.sales || 0);
+      setExpenses(calculateShiftMetrics(data).totalExpenses || 0);
       setRt(data.actualInventory.rt || 0);
       setVisa(data.actualInventory.visa || 0);
       setMaestro(data.actualInventory.maestro || 0);
+      setWallet(data.actualInventory.wallet || 0);
       setActualCash(data.actualInventory.actualCash || 0);
       if (!morningCashier) {
         setMorningCashier(data.cashierName || '');
       }
     }
-  }, [isOpen]);
+  }, [isOpen, data]);
 
   if (!isOpen) return null;
 
-  // Use the centralized calculation logic to ensure all expenses (including manual overrides) are captured
-  const metrics = calculateShiftMetrics(data);
-  const totalExpenses = metrics.totalExpenses;
-  const employeeAdvancesAndWages = metrics.effectiveAdvances;
-
-  // Automatically pulled from main shift state / tables
-  const openingCash = data.cashAndSales.openingCash || 0;
-  const addedReceivables = data.addCashReceivables ? data.addCashReceivables.reduce((sum, item) => sum + (item.amount || 0), 0) : (data.cashAndSales.paidOldReceivables || 0);
-  const newReceivables = data.addNewReceivables ? data.addNewReceivables.reduce((sum, item) => sum + (item.amount || 0), 0) : (data.cashAndSales.addedReceivables || 0);
-  const otherSales = data.cashAndSales.otherSales || 0;
-
-  // Expected cash = Opening - New Receivables + Added Receivables + (LOCAL sales) + otherSales - Total Expenses (including advances/wages) - (LOCAL visa) - (LOCAL rt) - (LOCAL maestro) - (ewallet)
-  const expectedCash = openingCash - newReceivables + addedReceivables + sales + otherSales - totalExpenses - visa - rt - maestro - metrics.ewalletTotal;
+  // Expected cash = (Opening + Sales) - Expenses - RT - Visa - Maestro - E-Wallet
+  const expectedCash = openingCash + sales - expenses - rt - visa - maestro - wallet;
   const handoverDifference = actualCash - expectedCash; // Positive = surplus, Negative = shortage
 
   const handleApplyHandover = () => {
     const handoverObj = {
       morningCashier: morningCashier || 'كاشير صباحي',
       eveningCashier: eveningCashier || 'كاشير مسائي',
+      openingCash,
       sales,
+      expenses,
       actualCash,
       expectedCash,
       difference: handoverDifference,
@@ -69,17 +66,20 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
       amount: mAmount,
       notes: 'تسليم شفت صباحي'
     });
+
     if (eveningCashier) {
       updateData(['shiftDifferences', 'evening', 'cashierName'], eveningCashier);
     }
+    
+    // Update main tables with the manually reviewed values
+    updateData(['cashAndSales', 'openingCash'], actualCash); // Evening shift gets this as opening
     updateData(['cashAndSales', 'sales'], sales);
     updateData(['actualInventory', 'rt'], rt);
     updateData(['actualInventory', 'visa'], visa);
     updateData(['actualInventory', 'maestro'], maestro);
+    updateData(['actualInventory', 'wallet'], wallet);
     updateData(['actualInventory', 'actualCash'], actualCash);
     
-    // Set opening cash for evening shift to actual cash
-    updateData(['cashAndSales', 'openingCash'], actualCash);
     if (eveningCashier) {
       updateData(['cashierName'], eveningCashier);
     }
@@ -99,7 +99,7 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
 
         <div className="flex items-center gap-3 mb-4 text-indigo-600">
           <ArrowRightLeft size={28} />
-          <h3 className="text-xl font-bold text-gray-800">مساعد تسليم الشفت السريع (بين الصباحي والمسائي)</h3>
+          <h3 className="text-xl font-bold text-gray-800">مساعد تسليم الشفت السريع</h3>
         </div>
 
         <div className="space-y-4">
@@ -132,13 +132,25 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
             </div>
           </div>
 
-          <div className="bg-gray-50 p-4 rounded-xl border space-y-3">
+          <div className="bg-gray-50 p-4 rounded-xl border space-y-4">
             <h4 className="font-bold text-gray-800 text-sm flex items-center gap-2">
               <Clock size={16} className="text-indigo-600" />
-              <span>أدخل البيانات الأساسية للشفت الصباحي:</span>
+              <span>أدخل البيانات الأساسية لتسليم الشفت:</span>
             </h4>
             
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-gray-600 mb-1">النقد الافتتاحي</label>
+                <input 
+                  type="number" inputMode="decimal" pattern="[0-9]*"
+                  value={openingCash}
+                  onChange={(e) => setOpeningCash(Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="w-full px-3 py-2 border rounded-lg text-sm text-center bg-white font-bold"
+                  placeholder="0"
+                />
+              </div>
               <div>
                 <label className="block text-[11px] font-bold text-gray-600 mb-1">المبيعات</label>
                 <input 
@@ -152,23 +164,23 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
                 />
               </div>
               <div>
+                <label className="block text-[11px] font-bold text-gray-600 mb-1">المصروفات</label>
+                <input 
+                  type="number" inputMode="decimal" pattern="[0-9]*"
+                  value={expenses}
+                  onChange={(e) => setExpenses(Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="w-full px-3 py-2 border rounded-lg text-sm text-center bg-white font-bold text-red-600"
+                  placeholder="0"
+                />
+              </div>
+              <div>
                 <label className="block text-[11px] font-bold text-gray-600 mb-1">الـ RT</label>
                 <input 
                   type="number" inputMode="decimal" pattern="[0-9]*"
                   value={rt}
                   onChange={(e) => setRt(Number(e.target.value))}
-                  onFocus={(e) => e.target.select()}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="w-full px-3 py-2 border rounded-lg text-sm text-center bg-white font-bold"
-                  placeholder="0"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-gray-600 mb-1">الفيزا</label>
-                <input 
-                  type="number" inputMode="decimal" pattern="[0-9]*"
-                  value={visa}
-                  onChange={(e) => setVisa(Number(e.target.value))}
                   onFocus={(e) => e.target.select()}
                   onWheel={(e) => e.currentTarget.blur()}
                   className="w-full px-3 py-2 border rounded-lg text-sm text-center bg-white font-bold"
@@ -187,8 +199,35 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
                   placeholder="0"
                 />
               </div>
-              <div className="col-span-2 sm:col-span-2">
-                <label className="block text-[11px] font-bold text-indigo-700 mb-1">النقد الفعلي (المعدود باليد)</label>
+              <div>
+                <label className="block text-[11px] font-bold text-gray-600 mb-1">المحفظة الإلكترونية</label>
+                <input 
+                  type="number" inputMode="decimal" pattern="[0-9]*"
+                  value={wallet}
+                  onChange={(e) => setWallet(Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="w-full px-3 py-2 border rounded-lg text-sm text-center bg-white font-bold text-purple-700"
+                  placeholder="0"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 mt-1">
+              <div>
+                <label className="block text-[11px] font-bold text-indigo-700 mb-1">الفيزا</label>
+                <input 
+                  type="number" inputMode="decimal" pattern="[0-9]*"
+                  value={visa}
+                  onChange={(e) => setVisa(Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="w-full px-3 py-2 border-2 border-indigo-200 rounded-lg text-base text-center bg-indigo-50/50 font-bold text-indigo-900 outline-none"
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-black text-indigo-700 mb-1">النقد الفعلي (المعدود باليد)</label>
                 <input 
                   type="number" inputMode="decimal" pattern="[0-9]*"
                   autoFocus
@@ -196,14 +235,13 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
                   onChange={(e) => setActualCash(Number(e.target.value))}
                   onFocus={(e) => e.target.select()}
                   onWheel={(e) => e.currentTarget.blur()}
-                  className="w-full px-3 py-2.5 border-2 border-indigo-400 rounded-lg text-base text-center bg-indigo-50 font-extrabold text-indigo-900 outline-none"
+                  className="w-full px-3 py-3 border-2 border-indigo-400 rounded-lg text-lg text-center bg-indigo-50 font-extrabold text-indigo-900 outline-none shadow-inner"
                   placeholder="0"
                 />
               </div>
             </div>
 
-            <div className="text-[11px] text-gray-500 pt-2 border-t flex justify-between items-center flex-wrap gap-1">
-              <span>النقد الافتتاحي، المصاريف، سلف وأجور الموظفين ({employeeAdvancesAndWages.toFixed(2)} د.أ) والذمم مسحوبة تلقائياً من الجداول.</span>
+            <div className="text-[11px] text-gray-500 pt-2 border-t flex justify-end items-center gap-1">
               <span className="font-bold text-gray-800 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">الكاش المتوقع: {expectedCash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.أ</span>
             </div>
           </div>
@@ -260,5 +298,6 @@ export const ShiftHandoverModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
     </div>
   );
 };
+
 
 

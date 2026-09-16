@@ -649,17 +649,38 @@ export const ActualInventorySection = React.memo(() => {
                 className="px-3 py-2 bg-gray-50 group-hover:bg-indigo-100/60 border border-gray-300 font-extrabold text-gray-800 text-center cursor-pointer text-sm sm:text-base"
                 title="انقر للانتقال لمعاينة جدول المحفظة الإلكترونية"
               >
-                <div className="flex items-center justify-center gap-1">
-                  <span>المحفظة</span>
-                  <ExternalLink size={12} className="text-indigo-500 opacity-40 group-hover:opacity-100 print:hidden shrink-0" />
+                <div className="flex flex-col items-center justify-center gap-1">
+                  <div className="flex items-center gap-1">
+                    <span>المحفظة</span>
+                    <ExternalLink size={12} className="text-indigo-500 opacity-40 group-hover:opacity-100 print:hidden shrink-0" />
+                  </div>
+                  {calc.ewalletTotal - (Number(data.actualInventory?.wallet) || 0) > 0 && (
+                    <span className="text-[10px] text-gray-500 font-bold bg-white px-1.5 py-0.5 rounded border border-gray-200">
+                      جدول: {calc.ewalletTotal - (Number(data.actualInventory?.wallet) || 0)}
+                    </span>
+                  )}
                 </div>
               </td>
-              <td className="px-3 py-2 border border-gray-300 text-center font-black text-indigo-900 bg-indigo-50/30 text-sm sm:text-base md:text-lg" dir="ltr">
-                {calc.ewalletTotal > 0 ? calc.ewalletTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'} د.أ
+              <td className="p-0 border border-gray-300 text-center font-black text-indigo-900 bg-indigo-50/10 text-sm sm:text-base md:text-lg" dir="ltr">
+                <DebouncedInput
+                  type="number"
+                  inputMode="decimal"
+                  pattern="[0-9]*"
+                  value={data.actualInventory?.wallet || ''}
+                  onFocus={(e: any) => e.target.select()}
+                  onWheel={(e: any) => e.currentTarget.blur()}
+                  onChange={(rawVal: string) => {
+                    handleInputChange('wallet', rawVal === '' ? 0 : Number(rawVal));
+                  }}
+                  className="w-full h-full px-3 py-2 bg-transparent outline-none text-center font-black text-slate-950 focus:bg-amber-50/80 focus:text-indigo-900 transition-all duration-150"
+                  dir="ltr"
+                  placeholder={calc.ewalletTotal - (Number(data.actualInventory?.wallet) || 0) > 0 ? String(calc.ewalletTotal - (Number(data.actualInventory?.wallet) || 0)) : "0"}
+                />
               </td>
             </tr>
             {displayFields.map((field, idx) => {
               const tableSum = field.value;
+              const detailedSum = tableSum - (Number(data.actualInventory?.[field.manualKey as keyof typeof data.actualInventory]) || 0);
 
               return (
                 <tr 
@@ -676,10 +697,32 @@ export const ActualInventorySection = React.memo(() => {
                         <span>{field.label}</span>
                         <ExternalLink size={12} className="opacity-40 group-hover:opacity-100 print:hidden shrink-0 text-indigo-500" />
                       </div>
+                      {detailedSum > 0 && (
+                        <span className="text-[10px] text-gray-500 font-bold bg-white px-1.5 py-0.5 rounded border border-gray-200">
+                          جدول: {detailedSum}
+                        </span>
+                      )}
                     </div>
                   </td>
-                  <td className="px-3 py-2 border border-gray-300 text-center font-black text-indigo-900 bg-indigo-50/30 text-sm sm:text-base md:text-lg" dir="ltr">
-                    {tableSum > 0 ? tableSum.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : '0'}
+                  <td className="p-0 border border-gray-300 text-center font-black text-indigo-900 bg-indigo-50/10 text-sm sm:text-base md:text-lg" dir="ltr">
+                    <DebouncedInput
+                      type="number"
+                      inputMode="decimal"
+                      pattern="[0-9]*"
+                      value={data.actualInventory?.[field.manualKey as keyof typeof data.actualInventory] || ''}
+                      onFocus={(e: any) => e.target.select()}
+                      onWheel={(e: any) => e.currentTarget.blur()}
+                      onChange={(rawVal: string) => {
+                        if (rawVal === '') {
+                          handleInputChange(field.manualKey, 0);
+                        } else {
+                          handleInputChange(field.manualKey, Number(rawVal));
+                        }
+                      }}
+                      className="w-full h-full px-3 py-2 bg-transparent outline-none text-center font-black text-slate-950 focus:bg-amber-50/80 focus:text-indigo-900 transition-all duration-150"
+                      dir="ltr"
+                      placeholder={detailedSum > 0 ? String(detailedSum) : "0"}
+                    />
                   </td>
                 </tr>
               );
